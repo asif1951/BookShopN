@@ -45,7 +45,6 @@ class BookController extends Controller
     }
 
     // Update book
-    // ✅ SIMPLE FIX: Update book
 public function update(Request $request, Book $book)
 {
     $validated = $request->validate([

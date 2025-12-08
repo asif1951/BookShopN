@@ -6,6 +6,7 @@ use App\Models\Book;
 use Inertia\Inertia;
 use App\Models\Author;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AuthorController extends Controller
 {
@@ -65,23 +66,27 @@ class AuthorController extends Controller
         $data = $request->only('name', 'bio');
 
         if ($request->hasFile('photo')) {
+            // Delete old photo if exists
+            if ($author->photo) {
+                Storage::disk('public')->delete($author->photo);
+            }
+            
+            // Store new photo
             $data['photo'] = $request->file('photo')->store('authors', 'public');
         }
 
         $author->update($data);
+        
         $authors = Author::latest()->paginate(10);
         $authors->getCollection()->transform(function ($author) {
             $author->photo = $author->photo ? asset('storage/' . $author->photo) : null;
             return $author;
         });
+        
         return redirect()
             ->route('authors.index')
             ->with('success', 'Author updated successfully!');
     }
-
-
-
-
 
     public function destroy(Author $author)
     {
@@ -91,7 +96,6 @@ class AuthorController extends Controller
             ->route('authors.index')
             ->with('success', 'Author deleted successfully!');
     }
-
 
     public function show(Author $author)
     {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Book;
+use App\Models\Feedback;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -11,7 +12,10 @@ class DashboardController extends Controller
     // Show all books
     public function index(Request $request)
     {
-        $query = Book::query();
+        $query = Book::withCount('feedbacks')
+            ->with(['feedbacks' => function($query) {
+                $query->select('book_id', 'rating');
+            }]);
         
         // Search by author
         if ($request->has('author') && $request->author) {
@@ -28,7 +32,47 @@ class DashboardController extends Controller
             $query->where('publisher', 'like', '%' . $request->publisher . '%');
         }
         
-        $books = $query->get();
+        $books = $query->get()->map(function($book) {
+            // Calculate average rating
+            $averageRating = 0;
+            if ($book->feedbacks_count > 0) {
+                $totalRating = $book->feedbacks->sum('rating');
+                $averageRating = round($totalRating / $book->feedbacks_count, 1);
+            }
+            
+            // Calculate rating distribution
+            $ratingDistribution = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
+            foreach ($book->feedbacks as $feedback) {
+                if ($feedback->rating >= 1 && $feedback->rating <= 5) {
+                    $ratingDistribution[$feedback->rating]++;
+                }
+            }
+            
+            // Calculate percentages
+            $ratingPercentages = [];
+            for ($i = 5; $i >= 1; $i--) {
+                $ratingPercentages[$i] = $book->feedbacks_count > 0 ? 
+                    round(($ratingDistribution[$i] / $book->feedbacks_count) * 100, 0) : 0;
+            }
+            
+            return [
+                'id' => $book->id,
+                'title' => $book->title,
+                'author' => $book->author,
+                'category' => $book->category,
+                'publisher' => $book->publisher,
+                'description' => $book->description,
+                'price' => $book->price,
+                'stock' => $book->stock,
+                'photo' => $book->photo,
+                'feedbacks_count' => $book->feedbacks_count,
+                'average_rating' => $averageRating,
+                'rating_distribution' => $ratingDistribution,
+                'rating_percentages' => $ratingPercentages,
+                'created_at' => $book->created_at,
+                'updated_at' => $book->updated_at
+            ];
+        });
         
         return Inertia::render('Dashboard', [
             'books' => $books,

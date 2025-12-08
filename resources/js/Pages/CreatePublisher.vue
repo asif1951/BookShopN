@@ -4,10 +4,17 @@ import { Head, useForm, usePage, Link, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 
 const showModal = ref(false)
+const showEditModal = ref(false)
 const successMessage = ref('')
+const editingPublisher = ref(null)
 
 // Form setup
 const form = useForm({
+  name: '',
+})
+
+// Edit form setup
+const editForm = useForm({
   name: '',
 })
 
@@ -19,7 +26,7 @@ const pageForm = useForm({
 // Fetch publishers from Inertia page props
 const page = usePage()
 const publishers = reactive(
-  page.props.publishers.data.map(p => ({ ...p, editing: false, tempName: p.name }))
+  page.props.publishers.data.map(p => ({ ...p }))
 )
 
 // Flash message from initial page load
@@ -37,11 +44,7 @@ const submit = () => {
       form.reset()
       
       // Update publishers list with new data
-      publishers.splice(0, publishers.length, ...page.props.publishers.data.map(p => ({ 
-        ...p, 
-        editing: false,
-        tempName: p.name 
-      })))
+      publishers.splice(0, publishers.length, ...page.props.publishers.data.map(p => ({ ...p })))
       
       if (page.props.flash?.success) {
         successMessage.value = page.props.flash.success
@@ -53,34 +56,29 @@ const submit = () => {
 
 // Start editing
 const startEditing = (publisher) => {
-  publisher.editing = true
-  publisher.tempName = publisher.name
+  editingPublisher.value = publisher
+  editForm.name = publisher.name
+  showEditModal.value = true
 }
 
 // Cancel editing
-const cancelEditing = (publisher) => {
-  publisher.editing = false
-  publisher.name = publisher.tempName
+const cancelEditing = () => {
+  editingPublisher.value = null
+  editForm.reset()
+  showEditModal.value = false
 }
 
 // Update publisher
-const updatePublisher = (publisher) => {
-  const updateForm = useForm({
-    name: publisher.name
-  })
-
-  updateForm.put(route('publishers.update', publisher.id), {
+const updatePublisher = () => {
+  editForm.put(route('publishers.update', editingPublisher.value.id), {
     preserveScroll: true,
     onSuccess: (page) => {
-      publisher.editing = false
-      publisher.tempName = publisher.name
+      showEditModal.value = false
+      editingPublisher.value = null
+      editForm.reset()
       
       // Update the publishers list with fresh data from server
-      const updatedPublishers = page.props.publishers.data.map(p => ({
-        ...p,
-        editing: false,
-        tempName: p.name
-      }))
+      const updatedPublishers = page.props.publishers.data.map(p => ({ ...p }))
       
       publishers.splice(0, publishers.length, ...updatedPublishers)
       
@@ -90,8 +88,8 @@ const updatePublisher = (publisher) => {
       }
     },
     onError: (errors) => {
-      // Revert to original name if there's an error
-      publisher.name = publisher.tempName
+      // Handle errors if needed
+      console.log('Update error:', errors)
     }
   })
 }
@@ -313,15 +311,7 @@ const pageNumbers = computed(() => {
                 
                 <!-- Name -->
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <div v-if="!publisher.editing" class="text-sm text-gray-900">{{ publisher.name }}</div>
-                  <input 
-                    v-else 
-                    v-model="publisher.name" 
-                    type="text" 
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                    @keyup.enter="updatePublisher(publisher)"
-                    @keyup.escape="cancelEditing(publisher)"
-                  />
+                  <div class="text-sm font-medium text-gray-900">{{ publisher.name }}</div>
                 </td>
                 
                 <!-- Created Date -->
@@ -334,28 +324,11 @@ const pageNumbers = computed(() => {
                   <div class="flex space-x-2">
                     <!-- Edit Button -->
                     <button 
-                      v-if="!publisher.editing"
                       @click="startEditing(publisher)"
                       class="bg-blue-100 text-blue-700 text-xs px-3 py-2 rounded hover:bg-blue-200 transition font-medium"
                     >
                       Edit
                     </button>
-                    
-                    <!-- Save/Cancel Buttons -->
-                    <div v-else class="flex space-x-2">
-                      <button
-                        @click="updatePublisher(publisher)"
-                        class="bg-green-100 text-green-700 text-xs px-3 py-2 rounded hover:bg-green-200 transition font-medium"
-                      >
-                        Save
-                      </button>
-                      <button
-                        @click="cancelEditing(publisher)"
-                        class="bg-gray-100 text-gray-700 text-xs px-3 py-2 rounded hover:bg-gray-200 transition font-medium"
-                      >
-                        Cancel
-                      </button>
-                    </div>
 
                     <!-- Delete Button -->
                     <button
@@ -553,6 +526,57 @@ const pageNumbers = computed(() => {
             >
               <span v-if="form.processing">Creating...</span>
               <span v-else>Create Publisher</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Edit Publisher Modal -->
+    <div v-if="showEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h3 class="text-lg font-medium text-gray-900">Edit Publisher</h3>
+          <p class="text-sm text-gray-500 mt-1">ID: {{ editingPublisher.id }}</p>
+        </div>
+        
+        <!-- Form -->
+        <form @submit.prevent="updatePublisher">
+          <div class="px-6 py-4 space-y-4">
+            <!-- Name -->
+            <div>
+              <label for="edit-publisher-name" class="block text-sm font-medium text-gray-700 mb-1">
+                Publisher Name
+              </label>
+              <input 
+                id="edit-publisher-name"
+                v-model="editForm.name" 
+                type="text" 
+                placeholder="Enter publisher name"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                :class="{ 'border-red-500': editForm.errors.name }"
+              />
+              <p v-if="editForm.errors.name" class="text-red-500 text-xs mt-1">{{ editForm.errors.name }}</p>
+            </div>
+          </div>
+          
+          <!-- Footer -->
+          <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end space-x-3">
+            <button 
+              type="button"
+              @click="cancelEditing"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              :disabled="editForm.processing"
+              class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition"
+            >
+              <span v-if="editForm.processing">Updating...</span>
+              <span v-else>Update Publisher</span>
             </button>
           </div>
         </form>

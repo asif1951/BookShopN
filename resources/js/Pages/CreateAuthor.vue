@@ -6,9 +6,17 @@ import { ref, computed, watch } from 'vue'
 const showModal = ref(false)
 const successMessage = ref('')
 const processingAuthorId = ref(null)
+const editingAuthor = ref(null)
 
 // Form setup
 const form = useForm({
+  name: '',
+  bio: '',
+  photo: null,
+})
+
+// Edit form setup
+const editForm = useForm({
   name: '',
   bio: '',
   photo: null,
@@ -24,10 +32,6 @@ const page = usePage()
 const authors = ref(
   page.props.authors.data.map(a => ({ 
     ...a, 
-    editing: false, 
-    tempName: a.name, 
-    tempBio: a.bio,
-    newPhoto: null,
     originalPhoto: a.photo
   }))
 )
@@ -47,10 +51,6 @@ const submit = () => {
       form.reset()
       authors.value = page.props.authors.data.map(a => ({ 
         ...a, 
-        editing: false, 
-        tempName: a.name, 
-        tempBio: a.bio,
-        newPhoto: null,
         originalPhoto: a.photo
       }))
       if (page.props.flash?.success) {
@@ -61,69 +61,52 @@ const submit = () => {
   })
 }
 
-// Start editing
+// Start editing in modal
 const startEditing = (author) => {
-  author.editing = true
-  author.tempName = author.name
-  author.tempBio = author.bio
-  author.newPhoto = null
-  author.photo = author.originalPhoto
+  editingAuthor.value = author
+  editForm.name = author.name
+  editForm.bio = author.bio
+  editForm.photo = null
 }
 
-// Cancel editing
-const cancelEditing = (author) => {
-  author.editing = false
-  author.name = author.tempName
-  author.bio = author.tempBio
-  author.newPhoto = null
-  author.photo = author.originalPhoto
+// Close edit modal
+const closeEditModal = () => {
+  editingAuthor.value = null
+  editForm.photo = null
 }
 
-// Handle photo change
-const handlePhotoChange = (author, event) => {
+// Handle photo change for edit
+const handleEditPhotoChange = (event) => {
   const file = event.target.files[0]
   if (file) {
-    author.newPhoto = file
-    
-    // Preview the new photo
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      author.photo = e.target.result
-    }
-    reader.readAsDataURL(file)
-  } else {
-    author.newPhoto = null
+    editForm.photo = file
   }
 }
 
 // Update author
-const updateAuthor = (author) => {
-  processingAuthorId.value = author.id
+const updateAuthor = () => {
+  processingAuthorId.value = editingAuthor.value.id
   
-  const updateForm = useForm({
-    name: author.name,
-    bio: author.bio,
-    photo: author.newPhoto
-  })
-
-  if (!author.newPhoto) {
-    delete updateForm.photo
+  // Create form data for file upload
+  const formData = new FormData()
+  formData.append('name', editForm.name)
+  formData.append('bio', editForm.bio)
+  formData.append('_method', 'PUT')
+  
+  if (editForm.photo) {
+    formData.append('photo', editForm.photo)
   }
 
-  updateForm.put(route('authors.update', author.id), {
+  // Use axios for form data
+  router.post(route('authors.update', editingAuthor.value.id), formData, {
     preserveScroll: true,
     onSuccess: (page) => {
-      author.editing = false
-      author.newPhoto = null
-      author.originalPhoto = author.photo
+      editingAuthor.value = null
+      editForm.reset()
       processingAuthorId.value = null
       
       authors.value = page.props.authors.data.map(a => ({ 
         ...a, 
-        editing: false, 
-        tempName: a.name, 
-        tempBio: a.bio,
-        newPhoto: null,
         originalPhoto: a.photo
       }))
       
@@ -134,10 +117,6 @@ const updateAuthor = (author) => {
     },
     onError: (errors) => {
       console.log('Update error:', errors)
-      author.name = author.tempName
-      author.bio = author.tempBio
-      author.newPhoto = null
-      author.photo = author.originalPhoto
       processingAuthorId.value = null
     }
   })
@@ -153,10 +132,6 @@ const deleteAuthor = (id) => {
     onSuccess: (page) => {
       authors.value = page.props.authors.data.map(a => ({ 
         ...a, 
-        editing: false, 
-        tempName: a.name, 
-        tempBio: a.bio,
-        newPhoto: null,
         originalPhoto: a.photo
       }))
       if (page.props.flash?.success) {
@@ -164,15 +139,6 @@ const deleteAuthor = (id) => {
         setTimeout(() => (successMessage.value = ''), 3000)
       }
     },
-  })
-}
-
-// Format date
-const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
   })
 }
 
@@ -357,58 +323,32 @@ const pageNumbers = computed(() => {
                     </div>
                     <div>
                       <div class="text-sm font-medium text-gray-900">ID: {{ author.id }}</div>
+                      <div class="text-sm text-gray-500">Created: {{ new Date(author.created_at).toLocaleDateString() }}</div>
                     </div>
                   </div>
                 </td>
                 
                 <!-- Name -->
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <div v-if="!author.editing" class="text-sm text-gray-900">{{ author.name }}</div>
-                  <input 
-                    v-else 
-                    v-model="author.name" 
-                    type="text" 
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                    @keyup.enter="updateAuthor(author)"
-                    @keyup.escape="cancelEditing(author)"
-                  />
+                  <div class="text-sm font-medium text-gray-900">{{ author.name }}</div>
                 </td>
                 
                 <!-- Bio -->
                 <td class="px-6 py-4">
-                  <div v-if="!author.editing" class="max-w-xs">
+                  <div class="max-w-xs">
                     <div class="text-sm text-gray-700 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
-                      {{ author.bio }}
+                      {{ author.bio || 'No bio available' }}
                     </div>
                   </div>
-                  <textarea 
-                    v-else 
-                    v-model="author.bio" 
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                    rows="3"
-                    @keyup.enter="updateAuthor(author)"
-                    @keyup.escape="cancelEditing(author)"
-                  ></textarea>
                 </td>
                 
                 <!-- Photo -->
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <div v-if="!author.editing" class="flex justify-center">
+                  <div class="flex justify-center">
                     <img v-if="author.photo" :src="author.photo" class="w-16 h-16 object-cover rounded-lg border border-gray-200" />
                     <div v-else class="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
                       <span class="text-gray-400 text-xs">No Photo</span>
                     </div>
-                  </div>
-                  <div v-else class="space-y-2">
-                    <img v-if="author.photo" :src="author.photo" class="w-16 h-16 object-cover rounded-lg border border-gray-200 mx-auto" />
-                    <input 
-                      type="file" 
-                      @change="handlePhotoChange(author, $event)" 
-                      class="w-full text-sm p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      accept="image/*"
-                    />
-                    <p v-if="author.newPhoto" class="text-xs text-green-600 text-center">New photo: {{ author.newPhoto.name }}</p>
-                    <p v-else class="text-xs text-gray-500 text-center">Choose new photo (optional)</p>
                   </div>
                 </td>
                 
@@ -417,30 +357,11 @@ const pageNumbers = computed(() => {
                   <div class="flex space-x-2">
                     <!-- Edit Button -->
                     <button 
-                      v-if="!author.editing"
                       @click="startEditing(author)"
                       class="bg-blue-100 text-blue-700 text-xs px-3 py-2 rounded hover:bg-blue-200 transition font-medium"
                     >
                       Edit
                     </button>
-                    
-                    <!-- Save/Cancel Buttons -->
-                    <div v-else class="flex space-x-2">
-                      <button
-                        @click="updateAuthor(author)"
-                        :disabled="processingAuthorId === author.id"
-                        class="bg-green-100 text-green-700 text-xs px-3 py-2 rounded hover:bg-green-200 disabled:opacity-50 transition font-medium"
-                      >
-                        {{ processingAuthorId === author.id ? 'Saving...' : 'Save' }}
-                      </button>
-                      <button
-                        @click="cancelEditing(author)"
-                        :disabled="processingAuthorId === author.id"
-                        class="bg-gray-100 text-gray-700 text-xs px-3 py-2 rounded hover:bg-gray-200 disabled:opacity-50 transition font-medium"
-                      >
-                        Cancel
-                      </button>
-                    </div>
 
                     <!-- Delete Button -->
                     <button
@@ -669,6 +590,109 @@ const pageNumbers = computed(() => {
             >
               <span v-if="form.processing">Creating...</span>
               <span v-else>Create Author</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Edit Author Modal -->
+    <div v-if="editingAuthor" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h3 class="text-lg font-medium text-gray-900">Edit Author</h3>
+          <p class="text-sm text-gray-500 mt-1">ID: {{ editingAuthor.id }}</p>
+        </div>
+        
+        <!-- Form -->
+        <form @submit.prevent="updateAuthor" class="space-y-4" enctype="multipart/form-data">
+          <div class="px-6 py-4 space-y-4">
+            <!-- Name -->
+            <div>
+              <label for="edit-author-name" class="block text-sm font-medium text-gray-700 mb-1">
+                Author Name
+              </label>
+              <input 
+                id="edit-author-name"
+                v-model="editForm.name" 
+                type="text" 
+                placeholder="Enter author name"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                :class="{ 'border-red-500': editForm.errors.name }"
+              />
+              <p v-if="editForm.errors.name" class="text-red-500 text-xs mt-1">{{ editForm.errors.name }}</p>
+            </div>
+
+            <!-- Bio -->
+            <div>
+              <label for="edit-author-bio" class="block text-sm font-medium text-gray-700 mb-1">
+                Author Bio
+              </label>
+              <textarea 
+                id="edit-author-bio"
+                v-model="editForm.bio" 
+                placeholder="Enter author bio"
+                rows="3"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                :class="{ 'border-red-500': editForm.errors.bio }"
+              ></textarea>
+              <p v-if="editForm.errors.bio" class="text-red-500 text-xs mt-1">{{ editForm.errors.bio }}</p>
+            </div>
+
+            <!-- Current Photo -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Current Photo
+              </label>
+              <div class="flex items-center space-x-4">
+                <div v-if="editingAuthor.photo" class="relative">
+                  <img :src="editingAuthor.photo" class="w-20 h-20 object-cover rounded-lg border border-gray-200" />
+                </div>
+                <div v-else class="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+                  <span class="text-gray-400 text-xs">No Photo</span>
+                </div>
+                <div class="text-sm text-gray-600">
+                  <p v-if="editingAuthor.photo">Current photo will be replaced</p>
+                  <p v-else>No photo uploaded yet</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- New Photo -->
+            <div>
+              <label for="edit-author-photo" class="block text-sm font-medium text-gray-700 mb-1">
+                New Photo (Optional)
+              </label>
+              <input 
+                id="edit-author-photo"
+                type="file" 
+                @change="handleEditPhotoChange" 
+                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                accept="image/*"
+              />
+              <p v-if="editForm.photo" class="text-green-600 text-xs mt-1">New photo selected: {{ editForm.photo.name }}</p>
+              <p v-if="editForm.errors.photo" class="text-red-500 text-xs mt-1">{{ editForm.errors.photo }}</p>
+              <p class="text-gray-500 text-xs mt-1">Leave empty to keep current photo</p>
+            </div>
+          </div>
+          
+          <!-- Footer -->
+          <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end space-x-3">
+            <button 
+              type="button"
+              @click="closeEditModal"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              :disabled="processingAuthorId === editingAuthor.id"
+              class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition"
+            >
+              <span v-if="processingAuthorId === editingAuthor.id">Updating...</span>
+              <span v-else>Update Author</span>
             </button>
           </div>
         </form>

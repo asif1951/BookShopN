@@ -47,6 +47,9 @@ const currentPath = ref('')
 // Use Inertia page for current URL
 const page = usePage()
 
+// Check if user is admin
+const isAdmin = computed(() => page.props.auth.user?.role === 'admin')
+
 // Update current path when route changes
 const updateCurrentPath = () => {
   currentPath.value = window.location.pathname
@@ -456,8 +459,161 @@ onUnmounted(() => {
 <template>
   <div>
     <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col">
-      <!-- Navbar -->
-      <nav class="bg-white shadow-lg border-b border-gray-200 fixed top-0 left-0 right-0 z-20">
+      <!-- Sidebar ekdom top e - SHOW ONLY FOR ADMIN -->
+      <aside
+        v-if="isAdmin"
+        :class="[ 
+          'bg-gradient-to-b from-gray-800 to-gray-900 shadow-xl fixed top-0 h-full transition-all duration-300 ease-in-out z-30',
+          sidebarOpen ? 'left-0' : '-left-64',
+          'w-64 sm:left-0 sm:w-64'
+        ]"
+      >
+        <div class="p-6 border-b border-gray-700">
+          <div class="flex items-center">
+            <div class="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center mr-3 shadow-md">
+              <span class="text-white text-lg font-bold">{{ $page.props.auth.user.name.charAt(0) }}</span>
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-white">
+                {{ $page.props.auth.user.name }}
+              </h2>
+              <span class="text-xs font-medium px-2 py-1 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
+                {{ $page.props.auth.user.role }}
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <nav class="mt-4 px-4">
+          <div class="mb-4">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Navigation</h3>
+            <ul class="space-y-1">
+              <!-- Dashboard -->
+              <li>
+                <Link href="/dashboard" 
+                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
+                  :class="isLinkActive('/dashboard') || isLinkActive('/') 
+                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md' 
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                  Dashboard
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Admin Only Links -->
+          <div class="mb-4">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Admin Tools</h3>
+            <ul class="space-y-1">
+              <!-- Create Book -->
+              <li>
+                <Link href="/create-book" 
+                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
+                  :class="isLinkActive('/create-book') 
+                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md' 
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+                  </svg>
+                  Create Book
+                </Link>
+              </li>
+              
+              <!-- Create Category -->
+              <li>
+                <Link href="/create-category" 
+                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
+                  :class="isLinkActive('/create-category') 
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-md' 
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  Create Category
+                </Link>
+              </li>
+              
+              <!-- Create Author -->
+              <li>
+                <Link href="/create-author" 
+                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
+                  :class="isLinkActive('/create-author') 
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md' 
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Create Author
+                </Link>
+              </li>
+              
+              <!-- Create Publisher -->
+              <li>
+                <Link href="/create-publisher" 
+                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
+                  :class="isLinkActive('/create-publisher') 
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md' 
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                  </svg>
+                  Create Publisher
+                </Link>
+              </li>
+              
+              <!-- Users -->
+              <li>
+                <Link href="/users" 
+                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
+                  :class="isLinkActive('/users') 
+                    ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md' 
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 0a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                  </svg>
+                  Users
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Common Links -->
+          <div class="mb-4">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Orders</h3>
+            <ul class="space-y-1">
+              <!-- Order List -->
+              <li>
+                <Link href="/order-list" 
+                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
+                  :class="isLinkActive('/order-list') 
+                    ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-md' 
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  Order List
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </nav>
+        
+        <!-- Sidebar Footer -->
+        <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700">
+          <div class="flex items-center justify-center">
+            <span class="text-xs text-gray-400">
+              BookShop v1.0
+            </span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Navbar - Sidebar er niche shuru hobe -->
+      <nav class="bg-white shadow-lg border-b border-gray-200 fixed top-0 left-0 right-0 z-20" :class="isAdmin ? 'sm:left-64' : ''">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex justify-between h-16 items-center">
             <!-- Logo Section - LEFT SIDE -->
@@ -466,6 +622,7 @@ onUnmounted(() => {
                 BookShop
               </Link>
               <button
+                v-if="isAdmin"
                 @click="sidebarOpen = !sidebarOpen"
                 class="sm:hidden text-gray-600 hover:text-gray-900 focus:outline-none p-1 rounded-lg hover:bg-gray-100"
               >
@@ -494,7 +651,79 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <!-- Search Boxes - SHOW ONLY ON DASHBOARD -->
+            <!-- Mobile: Dropdowns & Cart Icon (Hidden on desktop) -->
+            <div class="sm:hidden flex items-center space-x-3">
+              <!-- Order List Button for Mobile (Visible only for non-admin users) -->
+              <Link
+                v-if="!isAdmin"
+                :href="route('order.list')"
+                class="flex items-center px-3 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg hover:from-teal-600 hover:to-emerald-600 transition-all duration-200 shadow-sm hover:shadow text-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Orders
+              </Link>
+
+              <!-- Cart Icon for Mobile -->
+              <button @click="toggleCart" class="text-gray-700 hover:text-indigo-600 relative focus:outline-none p-1 rounded-lg hover:bg-indigo-50 transition-all duration-300">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.5 6H19m-12-6V6a1 1 0 011-1h4a1 1 0 011 1v7" />
+                </svg>
+                <span
+                  v-if="cartCount > 0"
+                  class="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-full text-xs w-4 h-4 flex items-center justify-center font-semibold shadow-sm text-[10px]">
+                  {{ cartCount }}
+                </span>
+              </button>
+
+              <!-- Mobile User Menu -->
+              <Dropdown align="right" width="48">
+                <template #trigger>
+                  <span class="inline-flex rounded-lg hover:shadow-sm transition-all duration-300">
+                    <button
+                      type="button"
+                      class="inline-flex items-center px-2 py-1 text-sm font-medium rounded-lg text-gray-700 bg-white hover:text-indigo-600 hover:bg-indigo-50 focus:outline-none transition-all duration-300 border border-gray-200"
+                    >
+                      <div class="w-6 h-6 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+                        <span class="text-white text-xs font-semibold">{{ $page.props.auth.user.name.charAt(0) }}</span>
+                      </div>
+                    </button>
+                  </span>
+                </template>
+
+                <template #content>
+                  <div class="py-1 bg-white rounded-lg shadow-lg border border-gray-200 min-w-48">
+                    <div class="px-4 py-3 border-b border-gray-100">
+                      <p class="text-sm font-semibold text-gray-900">{{ $page.props.auth.user.name }}</p>
+                      <p class="text-xs text-gray-500 mt-1">{{ $page.props.auth.user.email }}</p>
+                      <span class="inline-flex items-center px-2 py-1 mt-2 text-xs font-medium rounded-full"
+                        :class="$page.props.auth.user.role === 'admin' 
+                          ? 'bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-800' 
+                          : 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800'">
+                        {{ $page.props.auth.user.role }}
+                      </span>
+                    </div>
+                    <DropdownLink :href="route('profile.edit')" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      Profile
+                    </DropdownLink>
+                    <DropdownLink :href="route('logout')" method="post" as="button" 
+                      class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 w-full text-left">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Log Out
+                    </DropdownLink>
+                  </div>
+                </template>
+              </Dropdown>
+            </div>
+
+            <!-- Search Boxes - SHOW ONLY ON DASHBOARD (Desktop) -->
             <div v-if="isDashboard" class="hidden md:flex items-center space-x-2 flex-1 max-w-xl mx-4">
               <!-- Author Search -->
               <div class="relative flex-1">
@@ -535,8 +764,20 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <!-- Dropdowns + Cart Icon + User Dropdown - RIGHT SIDE -->
+            <!-- Desktop: Dropdowns + Cart Icon + User Dropdown + Order List Button -->
             <div class="hidden sm:flex sm:items-center sm:space-x-3">
+              <!-- Order List Button for Desktop (Visible only for non-admin users) -->
+              <Link
+                v-if="!isAdmin"
+                :href="route('order.list')"
+                class="flex items-center px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg hover:from-teal-600 hover:to-emerald-600 transition-all duration-200 shadow-sm hover:shadow text-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Order List
+              </Link>
+
               <!-- Authors Dropdown -->
               <div class="relative group">
                 <button class="flex items-center text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-indigo-50">
@@ -661,6 +902,7 @@ onUnmounted(() => {
                         d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.5 6H19m-12-6V6a1 1 0 011-1h4a1 1 0 011 1v7" />
                 </svg>
                 <span
+                  v-if="cartCount > 0"
                   class="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center font-semibold shadow-sm">
                   {{ cartCount }}
                 </span>
@@ -761,163 +1003,8 @@ onUnmounted(() => {
         </div>
       </nav>
 
-      <!-- Enhanced Sidebar with DARK BACKGROUND -->
-      <aside
-        :class="[ 
-          'bg-gradient-to-b from-gray-800 to-gray-900 shadow-xl fixed top-16 h-full transition-all duration-300 ease-in-out z-10',
-          sidebarOpen ? 'left-0' : '-left-64',
-          'w-64 sm:left-0 sm:w-64'
-        ]"
-      >
-        <div class="p-6 border-b border-gray-700">
-          <div class="flex items-center">
-            <div class="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center mr-3 shadow-md">
-              <span class="text-white text-lg font-bold">{{ $page.props.auth.user.name.charAt(0) }}</span>
-            </div>
-            <div>
-              <h2 class="text-lg font-bold text-white">
-                {{ $page.props.auth.user.name }}
-              </h2>
-              <span class="text-xs font-medium px-2 py-1 rounded-full"
-                :class="$page.props.auth.user.role === 'admin' 
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white' 
-                  : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'">
-                {{ $page.props.auth.user.role }}
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        <nav class="mt-4 px-4">
-          <div class="mb-4">
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Navigation</h3>
-            <ul class="space-y-1">
-              <!-- Dashboard -->
-              <li>
-                <Link href="/dashboard" 
-                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
-                  :class="isLinkActive('/dashboard') || isLinkActive('/') 
-                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md' 
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
-                  Dashboard
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <!-- Admin Only Links -->
-          <div v-if="$page.props.auth.user.role === 'admin'" class="mb-4">
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Admin Tools</h3>
-            <ul class="space-y-1">
-              <!-- Create Book -->
-              <li>
-                <Link href="/create-book" 
-                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
-                  :class="isLinkActive('/create-book') 
-                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md' 
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
-                  </svg>
-                  Create Book
-                </Link>
-              </li>
-              
-              <!-- Create Category -->
-              <li>
-                <Link href="/create-category" 
-                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
-                  :class="isLinkActive('/create-category') 
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-md' 
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                  </svg>
-                  Create Category
-                </Link>
-              </li>
-              
-              <!-- Create Author -->
-              <li>
-                <Link href="/create-author" 
-                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
-                  :class="isLinkActive('/create-author') 
-                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md' 
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  Create Author
-                </Link>
-              </li>
-              
-              <!-- Create Publisher -->
-              <li>
-                <Link href="/create-publisher" 
-                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
-                  :class="isLinkActive('/create-publisher') 
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md' 
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                  </svg>
-                  Create Publisher
-                </Link>
-              </li>
-              
-              <!-- Users -->
-              <li>
-                <Link href="/users" 
-                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
-                  :class="isLinkActive('/users') 
-                    ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md' 
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 0a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                  </svg>
-                  Users
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <!-- Common Links -->
-          <div class="mb-4">
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Orders</h3>
-            <ul class="space-y-1">
-              <!-- Order List / My Orders -->
-              <li>
-                <Link href="/order-list" 
-                  class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-sm group"
-                  :class="isLinkActive('/order-list') 
-                    ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-md' 
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                  {{ $page.props.auth.user.role === 'admin' ? 'Order List' : 'My Orders' }}
-                </Link>
-              </li>
-            </ul>
-          </div>
-        </nav>
-        
-        <!-- Sidebar Footer -->
-        <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700">
-          <div class="flex items-center justify-center">
-            <span class="text-xs text-gray-400">
-              BookShop v1.0
-            </span>
-          </div>
-        </div>
-      </aside>
-
       <!-- Page Content -->
-      <main class="pt-20 sm:ml-64 transition-all duration-300 min-h-screen">
+      <main class="pt-16 transition-all duration-300 min-h-screen" :class="isAdmin ? 'sm:ml-64' : ''">
         <slot />
       </main>
 

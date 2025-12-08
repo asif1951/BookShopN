@@ -19,7 +19,9 @@ const props = defineProps({
 
 // Modal and state
 const showModal = ref(false)
+const showEditModal = ref(false)
 const successMessage = ref('')
+const editingCategory = ref(null)
 
 // Search input ref for focus
 const searchInput = ref(null)
@@ -35,6 +37,11 @@ const searchForm = useForm({
 // Page input form
 const pageForm = useForm({
     page: props.categories.current_page || 1
+})
+
+// Edit form
+const editForm = useForm({
+    name: ''
 })
 
 // Watch search input and debounce
@@ -112,32 +119,31 @@ const submit = () => {
 
 // Start editing
 const startEditing = (category) => {
-  category.editing = true
-  category.tempName = category.name
+  editingCategory.value = category
+  editForm.name = category.name
+  showEditModal.value = true
 }
 
 // Cancel editing
-const cancelEditing = (category) => {
-  category.editing = false
-  category.name = category.tempName
+const cancelEditing = () => {
+  editingCategory.value = null
+  editForm.reset()
+  showEditModal.value = false
 }
 
 // Update category
-const updateCategory = (category) => {
-  const updateForm = useForm({ name: category.name })
-  updateForm.put(route('categories.update', category.id), {
+const updateCategory = () => {
+  editForm.put(route('categories.update', editingCategory.value.id), {
     preserveScroll: true,
     onSuccess: () => {
-      category.editing = false
+      showEditModal.value = false
+      editingCategory.value = null
+      editForm.reset()
       if (page.props.flash?.success) {
         successMessage.value = page.props.flash.success
         setTimeout(() => (successMessage.value = ''), 3000)
       }
     },
-    onError: (errors) => {
-      // Revert to original name if there's an error
-      category.name = category.tempName
-    }
   })
 }
 
@@ -406,15 +412,7 @@ const pageNumbers = computed(() => {
                 
                 <!-- Name -->
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <div v-if="!category.editing" class="text-sm text-gray-900">{{ category.name }}</div>
-                  <input 
-                    v-else 
-                    v-model="category.name" 
-                    type="text" 
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                    @keyup.enter="updateCategory(category)"
-                    @keyup.escape="cancelEditing(category)"
-                  />
+                  <div class="text-sm text-gray-900">{{ category.name }}</div>
                 </td>
                 
                 <!-- Created Date -->
@@ -427,28 +425,11 @@ const pageNumbers = computed(() => {
                   <div class="flex space-x-2">
                     <!-- Edit Button -->
                     <button 
-                      v-if="!category.editing"
                       @click="startEditing(category)"
                       class="bg-blue-100 text-blue-700 text-xs px-3 py-2 rounded hover:bg-blue-200 transition font-medium"
                     >
                       Edit
                     </button>
-                    
-                    <!-- Save/Cancel Buttons -->
-                    <div v-else class="flex space-x-2">
-                      <button
-                        @click="updateCategory(category)"
-                        class="bg-green-100 text-green-700 text-xs px-3 py-2 rounded hover:bg-green-200 transition font-medium"
-                      >
-                        Save
-                      </button>
-                      <button
-                        @click="cancelEditing(category)"
-                        class="bg-gray-100 text-gray-700 text-xs px-3 py-2 rounded hover:bg-gray-200 transition font-medium"
-                      >
-                        Cancel
-                      </button>
-                    </div>
 
                     <!-- Delete Button -->
                     <button
@@ -649,6 +630,57 @@ const pageNumbers = computed(() => {
             >
               <span v-if="form.processing">Creating...</span>
               <span v-else>Create Category</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Edit Category Modal -->
+    <div v-if="showEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h3 class="text-lg font-medium text-gray-900">Edit Category</h3>
+          <p class="text-sm text-gray-500 mt-1">ID: {{ editingCategory.id }}</p>
+        </div>
+        
+        <!-- Form -->
+        <form @submit.prevent="updateCategory">
+          <div class="px-6 py-4 space-y-4">
+            <!-- Name -->
+            <div>
+              <label for="edit-category-name" class="block text-sm font-medium text-gray-700 mb-1">
+                Category Name
+              </label>
+              <input 
+                id="edit-category-name"
+                v-model="editForm.name" 
+                type="text" 
+                placeholder="Enter category name"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                :class="{ 'border-red-500': editForm.errors.name }"
+              />
+              <p v-if="editForm.errors.name" class="text-red-500 text-xs mt-1">{{ editForm.errors.name }}</p>
+            </div>
+          </div>
+          
+          <!-- Footer -->
+          <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end space-x-3">
+            <button 
+              type="button"
+              @click="cancelEditing"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              :disabled="editForm.processing"
+              class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition"
+            >
+              <span v-if="editForm.processing">Updating...</span>
+              <span v-else>Update Category</span>
             </button>
           </div>
         </form>

@@ -1255,23 +1255,56 @@ export default {
                 const response = await axios.put(`/orders/${order.id}/status`, {
                     status: order.status
                 })
-
+                
                 if (response.data.success) {
-                    console.log('Order status updated successfully')
-                    alert('Order status updated successfully!')
+                    this.$notify({
+                        title: 'Success',
+                        message: 'Order status updated and email notification sent!',
+                        type: 'success'
+                    })
+                    
+                    // Refresh orders or update specific order
+                    await this.fetchOrders();
                 }
             } catch (error) {
                 console.error('Failed to update order status:', error)
                 
-                if (error.response?.status === 404) {
-                    alert('Error: Route not found. Please check the server configuration.')
-                } else if (error.response?.status === 403) {
-                    alert('Error: You do not have permission to update order status.')
-                } else {
-                    alert('Failed to update order status. Please try again.')
+                // Rollback the status change in UI
+                order.status = this.getOriginalStatus(order);
+                
+                this.$notify({
+                    title: 'Error',
+                    message: 'Failed to update order status: ' + (error.response?.data?.error || error.message),
+                    type: 'error'
+                })
+            }
+        }
+        
+        // Helper method to store original status
+        const getOriginalStatus = (order) => {
+            // You might need to store original status somewhere
+            return order._originalStatus || order.status;
+        }
+        
+        const fetchOrders = async () => {
+            try {
+                const params = {
+                    status: this.selectedStatus,
+                    search: this.searchQuery,
+                    payment_status: this.selectedPaymentStatus
                 }
                 
-                router.reload()
+                const response = await axios.get('/order-list', { params })
+                this.orders = response.data.orders.data || response.data.orders
+                this.totalOrders = response.data.orders.total || this.orders.length
+                
+                // Store original status for each order
+                this.orders.forEach(order => {
+                    order._originalStatus = order.status;
+                })
+                
+            } catch (error) {
+                console.error('Failed to fetch orders:', error)
             }
         }
 
@@ -1381,6 +1414,8 @@ export default {
             setDateRange,
             generatePDFWithDateRange,
             updateOrderStatus,
+            getOriginalStatus,
+            fetchOrders,
             previousPage,
             nextPage,
             goToPage,

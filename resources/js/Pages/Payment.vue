@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, router } from '@inertiajs/vue3'
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { loadStripe } from '@stripe/stripe-js'
 import axios from "axios"
 
@@ -33,11 +33,22 @@ const transactionId = ref('')
 const cartItems = ref([])
 const totalAmount = ref(0)
 
-// Load cart data
+// ✅ FIXED: Check if localStorage is available (for SSR)
+const isClient = typeof window !== 'undefined'
+
+// ✅ FIXED: Load cart data safely
 const loadCartData = () => {
-  const cart = JSON.parse(localStorage.getItem('cart')) || []
-  cartItems.value = cart
-  totalAmount.value = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  if (!isClient) return
+  
+  try {
+    const cart = JSON.parse(localStorage.getItem('cart')) || []
+    cartItems.value = cart
+    totalAmount.value = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  } catch (error) {
+    console.error('Error loading cart:', error)
+    cartItems.value = []
+    totalAmount.value = 0
+  }
 }
 
 // ✅ FIXED: Initialize Stripe with package
@@ -121,7 +132,14 @@ const processBkashPayment = async () => {
       throw new Error("Please enter a valid Bangladeshi mobile number")
     }
 
-    // Step 2: Check stock availability
+    // Step 2: Check if transaction ID is entered
+    if (!transactionId.value) {
+      alert(`Send $${totalAmount.value.toFixed(2)} to ${getWalletNumber('bkash')} and then enter transaction ID`);
+      bkashProcessing.value = false;
+      return;
+    }
+
+    // Step 3: Check stock availability
     console.log("🔍 Checking stock availability...")
     const stockCheckResponse = await axios.get('/check-stock', {
       params: {
@@ -135,7 +153,7 @@ const processBkashPayment = async () => {
 
     console.log("✅ Stock available, proceeding with bKash payment...")
 
-    // Step 3: Show OTP modal (simulating bKash OTP)
+    // Step 4: Show OTP modal (simulating bKash OTP)
     bkashPaymentSteps.value = 2
     showBkashOtpModal.value = true
 
@@ -162,9 +180,6 @@ const verifyBkashOtp = async () => {
     // Simulate payment processing delay
     await new Promise(resolve => setTimeout(resolve, 2000))
 
-    // Generate transaction ID
-    const transactionIdValue = `bkash_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-
     // 👉 CSRF cookie load
     await axios.get("/sanctum/csrf-cookie")
 
@@ -176,7 +191,7 @@ const verifyBkashOtp = async () => {
         total_amount: totalAmount.value,
         payment_method: 'bkash',
         payment_status: "paid",
-        transaction_id: transactionIdValue,
+        transaction_id: transactionId.value, // ✅ Use user entered transaction ID
         mobile_number: mobileNumber.value
       },
       {
@@ -307,11 +322,15 @@ const processStripePayment = async () => {
     }
 
     if (paymentIntent.status === 'succeeded') {
+      // Generate stripe transaction ID
+      const transactionIdValue = `stripe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      
       // Confirm payment with backend
       const confirmResponse = await axios.post('/confirm-stripe-payment', {
         payment_intent_id: paymentIntentId,
         items: cartItems.value,
-        total_amount: totalAmount.value
+        total_amount: totalAmount.value,
+        transaction_id: transactionIdValue
       });
 
       console.log("✅ Stripe payment successful:", confirmResponse.data);
@@ -333,7 +352,7 @@ const processStripePayment = async () => {
 
 // Process other payment methods (COD, Nagad, Rocket)
 const processOtherPayment = async () => {
-  // Mobile wallet validation
+  // Mobile wallet validation for nagad and rocket
   if (['nagad', 'rocket'].includes(paymentMethod.value)) {
     if (!mobileNumber.value) {
       throw new Error("Please enter your mobile number");
@@ -345,23 +364,40 @@ const processOtherPayment = async () => {
     }
   }
 
-  // Generate transaction ID
-  const transactionIdValue = generateTransactionId();
+  // COD validation
+  if (paymentMethod.value === 'cod') {
+    if (!mobileNumber.value) {
+      throw new Error("Please enter your mobile number for delivery");
+    }
+  }
+
+  // ✅ FIXED: Use entered transaction ID for mobile wallets
+  let transactionIdValue;
+  
+  if (['bkash', 'nagad', 'rocket'].includes(paymentMethod.value)) {
+    // For bKash, Nagad and Rocket, use the transaction ID entered by user
+    transactionIdValue = transactionId.value;
+  } else if (paymentMethod.value === 'cod') {
+    // For COD, generate transaction ID
+    transactionIdValue = `cod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  } else {
+    // For other methods, generate transaction ID
+    transactionIdValue = generateTransactionId();
+  }
 
   // 👉 FIXED: CSRF cookie load
   await axios.get("/sanctum/csrf-cookie");
 
-  // 👉 FIXED: Proper POST with axios - status automatically 'pending' হবে
+  // 👉 FIXED: Proper POST with axios
   const response = await axios.post(
     "/save-order",
     {
       items: cartItems.value,
       total_amount: totalAmount.value,
       payment_method: paymentMethod.value,
-      payment_status: "paid",
-      transaction_id: transactionIdValue,
+      payment_status: paymentMethod.value === 'cod' ? 'pending' : 'paid',
+      transaction_id: transactionIdValue, // ✅ Now this will be user's entered ID for bkash/nagad/rocket
       mobile_number: mobileNumber.value
-      // status field পাঠানোর দরকার নেই, backend এ automatically 'pending' set হবে
     },
     {
       withCredentials: true,
@@ -373,6 +409,7 @@ const processOtherPayment = async () => {
 
   console.log("✅ Payment successful:", response.data);
   console.log("📦 Stock should be updated for ordered items");
+  console.log("📝 Transaction ID saved:", transactionIdValue);
 
   // Clear cart
   localStorage.removeItem("cart");
@@ -380,12 +417,6 @@ const processOtherPayment = async () => {
   // Redirect to success page
   router.visit("/payment/success");
 };
-
-
-
-
-
-
 
 // Generate transaction ID
 const generateTransactionId = () => {
@@ -411,22 +442,27 @@ const getWalletNumber = (method) => {
   return numbers[method] || '01XXXXXXXXX'
 }
 
+// ✅ FIXED: Safe onMounted with client check
 onMounted(() => {
-  loadCartData()
-  
-  // Redirect if cart is empty
-  if (cartItems.value.length === 0) {
-    router.visit('/dashboard')
+  if (isClient) {
+    loadCartData()
+    
+    // Redirect if cart is empty
+    if (cartItems.value.length === 0) {
+      router.visit('/dashboard')
+    }
   }
 })
 
-// ✅ FIXED: Watch payment method changes
+// ✅ FIXED: Watch payment method changes with nextTick
 watch(paymentMethod, (newMethod) => {
   if (newMethod === 'stripe') {
-    // Small delay to ensure DOM is updated
-    setTimeout(() => {
-      setupCardElement();
-    }, 100);
+    // Wait for DOM to be updated
+    nextTick(() => {
+      if (isClient) {
+        setupCardElement();
+      }
+    });
   } else {
     // Clear Stripe elements when switching to other methods
     if (cardElement.value) {
@@ -441,6 +477,11 @@ watch(paymentMethod, (newMethod) => {
     }
   }
 });
+
+// ✅ FIXED: Safe computed for total amount display
+const displayTotalAmount = () => {
+  return totalAmount.value ? totalAmount.value.toFixed(2) : '0.00'
+}
 </script>
 
 <template>
@@ -454,7 +495,7 @@ watch(paymentMethod, (newMethod) => {
       <!-- Order Summary -->
       <div class="bg-white rounded-lg shadow-md p-6 mb-6">
         <h3 class="text-lg font-semibold mb-4">Order Summary</h3>
-        <div class="space-y-3">
+        <div v-if="cartItems.length > 0" class="space-y-3">
           <div v-for="item in cartItems" :key="item.id" class="flex justify-between items-center">
             <div>
               <p class="font-medium">{{ item.title }}</p>
@@ -463,16 +504,25 @@ watch(paymentMethod, (newMethod) => {
             <p class="font-semibold">${{ (item.price * item.quantity).toFixed(2) }}</p>
           </div>
         </div>
-        <div class="border-t mt-4 pt-4">
+        <div v-else class="text-center py-8">
+          <p class="text-gray-500">Your cart is empty</p>
+          <button
+            @click="router.visit('/dashboard')"
+            class="mt-4 bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
+          >
+            Continue Shopping
+          </button>
+        </div>
+        <div v-if="cartItems.length > 0" class="border-t mt-4 pt-4">
           <div class="flex justify-between items-center text-lg font-bold">
             <span>Total Amount:</span>
-            <span>${{ totalAmount.toFixed(2) }}</span>
+            <span>${{ displayTotalAmount() }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Payment Methods -->
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <!-- Payment Methods (Only show if cart has items) -->
+      <div v-if="cartItems.length > 0" class="bg-white rounded-lg shadow-md p-6">
         <h3 class="text-lg font-semibold mb-6">Select Payment Method</h3>
 
         <!-- Payment Error -->
@@ -613,22 +663,35 @@ watch(paymentMethod, (newMethod) => {
           </div>
 
           <!-- Mobile Wallet Form -->
-          <div v-if="['bkash', 'nagad', 'rocket'].includes(paymentMethod)" class="space-y-4">
-            <h4 class="font-semibold mb-4">{{ paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1) }} Payment</h4>
+          <div v-if="['bkash', 'nagad', 'rocket', 'cod'].includes(paymentMethod)" class="space-y-4">
+            <h4 class="font-semibold mb-4">{{ paymentMethod === 'cod' ? 'Cash on Delivery' : paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1) }} Payment</h4>
             
             <!-- bKash Specific Steps -->
             <div v-if="paymentMethod === 'bkash'" class="space-y-4">
-              <!-- Step 1: Mobile Number -->
+              <!-- Step 1: Mobile Number and Transaction ID -->
               <div v-if="bkashPaymentSteps === 1">
-                <label class="block text-sm font-medium text-gray-700 mb-1">bKash Mobile Number</label>
-                <input
-                  v-model="mobileNumber"
-                  type="text"
-                  placeholder="01XXXXXXXXX"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                  :disabled="bkashProcessing"
-                />
-                <p class="text-xs text-gray-500 mt-1">Enter your bKash registered mobile number</p>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">bKash Mobile Number</label>
+                  <input
+                    v-model="mobileNumber"
+                    type="text"
+                    placeholder="01XXXXXXXXX"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    :disabled="bkashProcessing"
+                  />
+                </div>
+
+                <div class="mt-4">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">bKash Transaction ID</label>
+                  <input
+                    v-model="transactionId"
+                    type="text"
+                    placeholder="Enter bKash transaction ID"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    :disabled="bkashProcessing"
+                  />
+                  <p class="text-xs text-gray-500 mt-1">Enter the transaction ID from your bKash payment</p>
+                </div>
               </div>
 
               <!-- Step 2: OTP Verification (Modal) -->
@@ -659,7 +722,7 @@ watch(paymentMethod, (newMethod) => {
               </div>
             </div>
 
-            <!-- Other Mobile Wallets (Original) -->
+            <!-- Other Mobile Wallets and COD -->
             <div v-if="paymentMethod !== 'bkash'">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
@@ -671,7 +734,8 @@ watch(paymentMethod, (newMethod) => {
                 />
               </div>
 
-              <div>
+              <!-- Show transaction ID field for nagad and rocket -->
+              <div v-if="['nagad', 'rocket'].includes(paymentMethod)">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
                 <input
                   v-model="transactionId"
@@ -684,18 +748,26 @@ watch(paymentMethod, (newMethod) => {
 
             <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
               <p class="text-sm text-yellow-800">
-                <strong v-if="paymentMethod === 'bkash'">bKash Dummy Payment Instructions:</strong>
+                <strong v-if="paymentMethod === 'bkash'">bKash Payment Instructions:</strong>
+                <strong v-else-if="paymentMethod === 'cod'">Cash on Delivery Instructions:</strong>
                 <strong v-else>Instructions:</strong>
-                <br v-if="paymentMethod === 'bkash'">
+                <br v-if="paymentMethod === 'bkash' || paymentMethod === 'cod'">
                 <span v-if="paymentMethod === 'bkash'">
                   1. Enter your bKash mobile number<br>
-                  2. Click "Pay with bKash" button<br>
-                  3. Enter OTP: <strong>123456</strong><br>
-                  4. Payment will be processed automatically
+                  2. Send ${{ displayTotalAmount() }} to {{ getWalletNumber('bkash') }}<br>
+                  3. Enter the bKash transaction ID<br>
+                  4. Click "Pay with bKash" button<br>
+                  5. Enter OTP: <strong>123456</strong><br>
+                  6. Payment will be processed automatically
+                </span>
+                <span v-else-if="paymentMethod === 'cod'">
+                  1. Enter your mobile number for delivery contact<br>
+                  2. Click "Pay" button to place order<br>
+                  3. Pay ${{ displayTotalAmount() }} when you receive your order
                 </span>
                 <span v-else>
                   1. Go to your {{ paymentMethod }} app<br>
-                  2. Send ${{ totalAmount.toFixed(2) }} to {{ getWalletNumber(paymentMethod) }}<br>
+                  2. Send ${{ displayTotalAmount() }} to {{ getWalletNumber(paymentMethod) }}<br>
                   3. Enter the transaction ID above<br>
                   4. Click "Pay" button to complete order
                 </span>
@@ -707,7 +779,7 @@ watch(paymentMethod, (newMethod) => {
           <div v-if="paymentMethod === 'cod'" class="bg-blue-50 border border-blue-200 rounded-md p-4">
             <p class="text-sm text-blue-800">
               <strong>Cash on Delivery:</strong><br>
-              You will pay ${{ totalAmount.toFixed(2) }} when you receive your order.
+              You will pay ${{ displayTotalAmount() }} when you receive your order.
             </p>
           </div>
         </div>
@@ -722,13 +794,16 @@ watch(paymentMethod, (newMethod) => {
             class="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-semibold text-lg"
           >
             <span v-if="paymentMethod === 'bkash' && bkashPaymentSteps === 1">
-              Pay with bKash - ${{ totalAmount.toFixed(2) }}
+              Pay with bKash - ${{ displayTotalAmount() }}
             </span>
             <span v-else-if="paymentMethod === 'bkash' && bkashPaymentSteps > 1">
               bKash Payment in Progress...
             </span>
+            <span v-else-if="paymentMethod === 'cod'">
+              {{ processingPayment ? 'Placing Order...' : `Place Order - $${displayTotalAmount()}` }}
+            </span>
             <span v-else>
-              {{ processingPayment ? 'Processing...' : `Pay $${totalAmount.toFixed(2)}` }}
+              {{ processingPayment ? 'Processing...' : `Pay $${displayTotalAmount()}` }}
             </span>
           </button>
           

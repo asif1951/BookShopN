@@ -428,37 +428,60 @@ class PaymentController extends Controller
         return ['available' => true, 'message' => 'All items in stock'];
     }
 
-    // ✅ NEW: Update Order Status
-    public function updateOrderStatus(Request $request, Order $order)
-    {
-        $request->validate([
-            'status' => 'required|in:pending,confirmed,processing,shipped,delivered,cancelled'
+    // ✅ UPDATED: Update Order Status with email notification
+public function updateOrderStatus(Request $request, Order $order)
+{
+    $request->validate([
+        'status' => 'required|in:pending,confirmed,processing,shipped,delivered,cancelled'
+    ]);
+
+    try {
+        $oldStatus = $order->status;
+        $order->update(['status' => $request->status]);
+
+        // Send email notification to user
+        if ($order->user && $order->user->email) {
+            try {
+                $order->user->notify(new \App\Notifications\OrderStatusUpdated($order, $oldStatus, $request->status));
+                
+                Log::info("Order status email sent", [
+                    'order_id' => $order->id,
+                    'user_id' => $order->user->id,
+                    'user_email' => $order->user->email,
+                    'old_status' => $oldStatus,
+                    'new_status' => $request->status
+                ]);
+            } catch (\Exception $emailException) {
+                Log::error('Failed to send order status email: ' . $emailException->getMessage(), [
+                    'order_id' => $order->id,
+                    'user_email' => $order->user->email
+                ]);
+            }
+        }
+
+        Log::info("Order status updated", [
+            'order_id' => $order->id,
+            'old_status' => $oldStatus,
+            'new_status' => $request->status,
+            'updated_by' => auth()->id()
         ]);
 
-        try {
-            $oldStatus = $order->status;
-            $order->update(['status' => $request->status]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Order status updated successfully',
+            'order' => $order->fresh()
+        ]);
 
-            Log::info("Order status updated", [
-                'order_id' => $order->id,
-                'old_status' => $oldStatus,
-                'new_status' => $request->status,
-                'updated_by' => auth()->id()
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Order status updated successfully',
-                'order' => $order->fresh()
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Order status update failed: ' . $e->getMessage());
-            return response()->json([
-                'error' => 'Failed to update order status: ' . $e->getMessage()
-            ], 500);
-        }
+    } catch (\Exception $e) {
+        Log::error('Order status update failed: ' . $e->getMessage());
+        return response()->json([
+            'error' => 'Failed to update order status: ' . $e->getMessage()
+        ], 500);
     }
+}
+
+
+
 
     // ✅ NEW: Get Orders for Admin
     public function getOrders(Request $request)
