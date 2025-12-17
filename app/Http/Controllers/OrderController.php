@@ -19,7 +19,7 @@ class OrderController extends Controller
         
         // Search and filters here...
         
-        $orders = $query->orderBy('created_at', 'asc')
+        $orders = $query->orderBy('id', 'desc')
                        ->paginate(10);
 
         return Inertia::render('OrderList', [

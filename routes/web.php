@@ -16,14 +16,18 @@ use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PublisherController;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
+// Route::get('/', function () {
+//     return Inertia::render('Welcome', [
+//         'canLogin' => Route::has('login'),
+//         'canRegister' => Route::has('register'),
+//         'laravelVersion' => Application::VERSION,
+//         'phpVersion' => PHP_VERSION,
+//     ]);
+// });
+
+Route::get('/', [DashboardController::class, 'index']);
+
+
 
 // ✅ FIXED: Move stock-data route outside auth middleware
 Route::get('/books/stock-data', function () {
@@ -99,7 +103,64 @@ Route::get('/order-list', function (Request $request) {
 // Dashboard Route
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
+// ✅ Add this API route for getting other books in same category
+Route::get('/api/categories/{category}/books', function ($categoryId, Request $request) {
+    $excludeBookId = $request->query('exclude');
+    
+    $query = Book::where('category_id', $categoryId)
+                ->where('stock', '>', 0) // Only available books
+                ->with('feedbacks'); // Get feedbacks for rating calculation
+    
+    // Exclude specific book if provided
+    if ($excludeBookId) {
+        $query->where('id', '!=', $excludeBookId);
+    }
+    
+    $books = $query->take(8)->get();
+    
+    // Format the response with average rating
+    $formattedBooks = $books->map(function ($book) {
+        // Calculate average rating
+        $averageRating = 0;
+        if ($book->feedbacks->count() > 0) {
+            $averageRating = $book->feedbacks->avg('rating');
+        }
+        
+        return [
+            'id' => $book->id,
+            'title' => $book->title,
+            'author' => $book->author,
+            'price' => $book->price,
+            'stock' => $book->stock,
+            'photo' => $book->photo,
+            'category_id' => $book->category_id,
+            'average_rating' => round($averageRating, 1),
+            'reviews_count' => $book->feedbacks->count(),
+        ];
+    });
+    
+    return response()->json($formattedBooks);
+});
+
 Route::get('/books/{id}', [BookController::class, 'show'])->name('books.show');
+
+//to find authors
+Route::get('/api/authors', function () {
+    $authors = \App\Models\Author::select('id', 'name')->get();
+    return response()->json($authors);
+});
+
+// to find categories
+Route::get('/api/categories', function () {
+    $categories = \App\Models\Category::select('id', 'name')->get();
+    return response()->json($categories);
+});
+
+// to find the publishers
+Route::get('/api/publishers', function () {
+    $publishers = \App\Models\Publisher::select('id', 'name')->get();
+    return response()->json($publishers);
+});
 
 Route::middleware('auth')->group(function () {
     // Profile Routes - সব authenticated users এর জন্য
@@ -127,20 +188,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/orders/{order}/status', [PaymentController::class, 'updateOrderStatus'])->name('orders.status.update');
 
     // API Routes for Dropdowns - সব authenticated users এর জন্য
-    Route::get('/api/authors', function () {
-        $authors = \App\Models\Author::select('id', 'name')->get();
-        return response()->json($authors);
-    });
 
-    Route::get('/api/categories', function () {
-        $categories = \App\Models\Category::select('id', 'name')->get();
-        return response()->json($categories);
-    });
 
-    Route::get('/api/publishers', function () {
-        $publishers = \App\Models\Publisher::select('id', 'name')->get();
-        return response()->json($publishers);
-    });
+
+
+
 });
 
 // Admin Only Routes - শুধু admin role যাদের

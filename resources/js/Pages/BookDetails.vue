@@ -17,6 +17,13 @@ const editingReviewId = ref(null)
 // Cart functionality
 const cartItems = ref([])
 
+// Categories
+const categories = ref([])
+const categoriesLoading = ref(false)
+
+// Other books in same category - এখন প্রপ্স থেকে নিবে
+const otherBooks = ref(page.props.otherBooks || [])
+
 // Load cart from localStorage
 const loadCart = () => {
   const savedCart = localStorage.getItem('cart')
@@ -40,6 +47,33 @@ const saveCart = () => {
   
   // Force immediate UI update
   forceUpdate()
+}
+
+// Fetch categories from API
+const fetchCategories = async () => {
+  categoriesLoading.value = true
+  try {
+    const response = await fetch('/api/categories')
+    if (response.ok) {
+      const data = await response.json()
+      categories.value = data
+      console.log('📚 Categories loaded:', categories.value)
+    }
+  } catch (error) {
+    console.error('❌ Error fetching categories:', error)
+  } finally {
+    categoriesLoading.value = false
+  }
+}
+
+// Category details page e navigate korar function
+const openCategoryDetails = (category) => {
+  router.visit(`/categories/${category.id}`)
+}
+
+// Book details page e navigate korar function
+const openBookDetails = (book) => {
+  router.visit(`/books/${book.id}`)
 }
 
 // Listen for storage events
@@ -79,6 +113,7 @@ const forceUpdate = () => {
 // Load cart on component mount
 onMounted(() => {
   loadCart()
+  fetchCategories()
   
   window.addEventListener('storage', handleStorageChange)
   window.addEventListener('cartUpdated', handleCartUpdate)
@@ -190,6 +225,13 @@ watch(() => page.props.feedbacks, (newFeedbacks) => {
 watch(() => page.props.book, (newBook) => {
   if (newBook) {
     book.value = newBook
+  }
+})
+
+// Watch for otherBooks props changes
+watch(() => page.props.otherBooks, (newOtherBooks) => {
+  if (newOtherBooks) {
+    otherBooks.value = newOtherBooks
   }
 })
 
@@ -336,9 +378,9 @@ const deleteReview = () => {
       </h2>
     </template>
 
-    <div class="py-12 max-w-5xl mx-auto" v-if="book.title">
+    <div class="py-12 max-w-7xl mx-auto" v-if="book.title">
       <!-- Book Info -->
-      <div class="bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row">
+      <div class="bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row mb-10">
         <div class="md:w-1/3 w-full">
           <img
             :src="book.photo ? `/storage/${book.photo}` : 'https://via.placeholder.com/400x500?text=No+Image'"
@@ -434,8 +476,26 @@ const deleteReview = () => {
           </div>
         </div>
 
+        <!-- Show login message if user is not authenticated -->
+        <div v-if="!authUser" class="mb-6 p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div class="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <div>
+              <h4 class="font-semibold text-yellow-800">Login Required</h4>
+              <p class="text-yellow-700 mt-1">
+                Please login to submit a rating and review for this book.
+                <a href="/login" class="text-indigo-600 font-medium hover:text-indigo-800 ml-1">
+                  Click here to login
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+
         <!-- User's existing review info -->
-        <div v-if="userReview && !editingReviewId" class="mb-4 p-4 bg-blue-50 rounded-lg">
+        <div v-if="authUser && userReview && !editingReviewId" class="mb-4 p-4 bg-blue-50 rounded-lg">
           <p class="text-blue-700 font-semibold">You already reviewed this book</p>
           <div class="flex items-center gap-2 mt-2">
             <button
@@ -454,7 +514,7 @@ const deleteReview = () => {
         </div>
 
         <!-- Rating Stars - Disabled if user already has a review and not editing -->
-        <div v-if="!userReview || editingReviewId" class="flex items-center gap-2 mb-2">
+        <div v-if="authUser && (!userReview || editingReviewId)" class="flex items-center gap-2 mb-2">
           <template v-for="i in 5" :key="i">
             <button
               type="button"
@@ -474,7 +534,7 @@ const deleteReview = () => {
 
         <!-- Review Textarea - Disabled if user already has a review and not editing -->
         <textarea
-          v-if="!userReview || editingReviewId"
+          v-if="authUser && (!userReview || editingReviewId)"
           v-model="reviewText"
           rows="4"
           placeholder="Write your review..."
@@ -482,14 +542,25 @@ const deleteReview = () => {
         ></textarea>
 
         <!-- Message when user has already reviewed and not editing -->
-        <div v-if="userReview && !editingReviewId" class="p-4 bg-gray-100 rounded-md">
+        <div v-if="authUser && userReview && !editingReviewId" class="p-4 bg-gray-100 rounded-md">
           <p class="text-gray-600 text-center">You have already submitted a review for this book. Use the Edit button above to modify your review.</p>
+        </div>
+
+        <!-- Message when user is not logged in -->
+        <div v-if="!authUser" class="p-4 bg-gray-100 rounded-md">
+          <p class="text-gray-600 text-center">
+            Please 
+            <a href="/login" class="text-indigo-600 font-medium hover:text-indigo-800">
+              login
+            </a> 
+            to submit a review for this book.
+          </p>
         </div>
 
         <p class="text-xs text-red-600" v-if="errors.review">{{ errors.review }}</p>
 
         <!-- Buttons - Only show if user hasn't reviewed or is editing -->
-        <div v-if="!userReview || editingReviewId" class="mt-4 flex gap-3">
+        <div v-if="authUser && (!userReview || editingReviewId)" class="mt-4 flex gap-3">
           <button
             @click="submitFeedback"
             class="bg-indigo-600 text-white px-5 py-2 rounded-md hover:bg-indigo-700 transition"
@@ -507,7 +578,7 @@ const deleteReview = () => {
       </div>
 
       <!-- Display Reviews -->
-      <div class="mt-10">
+      <div class="mt-10 mb-12">
         <h3 class="text-2xl font-bold mb-6">Customer Reviews ({{ totalReviewsCount }})</h3>
         
         <div v-if="reviews.length === 0" class="text-center text-gray-500 py-8">
@@ -552,7 +623,7 @@ const deleteReview = () => {
             <p class="text-gray-700 leading-relaxed">{{ reviewItem.review }}</p>
             
             <!-- Show edit indicator if it's current user's review -->
-            <div v-if="reviewItem.user_id === authUser?.id" class="mt-2">
+            <div v-if="authUser && reviewItem.user_id === authUser?.id" class="mt-2">
               <span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
                 Your Review
               </span>
@@ -560,10 +631,119 @@ const deleteReview = () => {
           </div>
         </div>
       </div>
+
+      <!-- Other Books in Same Category Section -->
+      <div class="mt-12 mb-16" v-if="otherBooks.length > 0">
+        <div class="flex items-center justify-between mb-8">
+          <h3 class="text-3xl font-bold text-gray-800">
+            Other Books in This Category
+          </h3>
+          <div class="text-indigo-600 font-medium">
+            Showing {{ otherBooks.length }} books
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+          <div 
+            v-for="otherBook in otherBooks" 
+            :key="otherBook.id"
+            class="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden transform hover:-translate-y-1 cursor-pointer group"
+            @click="openBookDetails(otherBook)"
+          >
+            <!-- Book Image -->
+            <div class="relative overflow-hidden">
+              <img
+                :src="otherBook.photo ? `/storage/${otherBook.photo}` : 'https://via.placeholder.com/300x400?text=No+Image'"
+                :alt="otherBook.title"
+                class="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              
+              <!-- Stock Status -->
+              <div 
+                class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold"
+                :class="otherBook.stock > 0 ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
+              >
+                {{ otherBook.stock > 0 ? 'In Stock' : 'Out of Stock' }}
+              </div>
+              
+              <!-- Quick View Button -->
+              <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                <span class="bg-white text-gray-800 px-4 py-2 rounded-lg font-medium">
+                  View Details
+                </span>
+              </div>
+            </div>
+
+            <!-- Book Info -->
+            <div class="p-5">
+              <h4 class="text-lg font-bold text-gray-900 mb-2 line-clamp-1 group-hover:text-indigo-600 transition-colors">
+                {{ otherBook.title }}
+              </h4>
+              
+              <p class="text-gray-600 text-sm mb-3 line-clamp-2">
+                By {{ otherBook.author }}
+              </p>
+              
+              <!-- Rating -->
+              <div class="flex items-center mb-4">
+                <div class="flex">
+                  <template v-for="i in 5" :key="i">
+                    <span 
+                      class="text-sm"
+                      :style="{ color: i <= (otherBook.average_rating || 0) ? '#FACC15' : '#D1D5DB' }"
+                    >
+                      ★
+                    </span>
+                  </template>
+                </div>
+                <span class="text-gray-600 text-sm ml-2">
+                  {{ otherBook.average_rating?.toFixed(1) || '0.0' }}
+                </span>
+              </div>
+              
+              <!-- Price and Action -->
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xl font-bold text-indigo-600">
+                    ${{ otherBook.price }}
+                  </p>
+                  <p class="text-gray-500 text-xs">
+                    {{ otherBook.stock }} available
+                  </p>
+                </div>
+                
+                <!-- Add to Cart Button -->
+                <button
+                  @click.stop="addToCart(otherBook)"
+                  :disabled="otherBook.stock === 0 || isInCart(otherBook)"
+                  :class="[
+                    'px-4 py-2 rounded-lg font-medium transition-all',
+                    isInCart(otherBook) 
+                      ? 'bg-green-100 text-green-700 cursor-default'
+                      : otherBook.stock === 0
+                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      : 'bg-indigo-500 text-white hover:bg-indigo-600'
+                  ]"
+                >
+                  <span v-if="isInCart(otherBook)">
+                    Added ({{ getCartQuantity(otherBook) }})
+                  </span>
+                  <span v-else-if="otherBook.stock === 0">
+                    Out of Stock
+                  </span>
+                  <span v-else>
+                    Add to Cart
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Show loading state if book data is not available -->
-    <div v-else class="py-12 max-w-5xl mx-auto">
+    <div v-else class="py-12 max-w-7xl mx-auto">
       <div class="text-center text-gray-500">
         Loading book details...
       </div>

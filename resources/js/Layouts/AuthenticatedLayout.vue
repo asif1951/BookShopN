@@ -4,6 +4,14 @@ import Dropdown from '@/Components/Dropdown.vue'
 import DropdownLink from '@/Components/DropdownLink.vue'
 import { Link, router, usePage } from '@inertiajs/vue3'
 
+// Define props to accept guest mode
+const props = defineProps({
+  guestMode: {
+    type: Boolean,
+    default: false
+  }
+})
+
 // Sidebar toggle
 const sidebarOpen = ref(false)
 
@@ -14,12 +22,6 @@ const cartCount = ref(0)
 
 // Real-time books data for stock validation
 const booksData = ref([])
-
-// Search filters for navbar - SHOW ONLY ON DASHBOARD
-const authorSearch = ref('')
-const categorySearch = ref('')
-const publisherSearch = ref('')
-const searchTimeout = ref(null)
 
 // Dropdown data
 const authors = ref([])
@@ -47,57 +49,15 @@ const currentPath = ref('')
 // Use Inertia page for current URL
 const page = usePage()
 
-// Check if user is admin
-const isAdmin = computed(() => page.props.auth.user?.role === 'admin')
+// Check if user is logged in
+const isAuthenticated = computed(() => !!page.props.auth?.user)
+
+// Check if user is admin (only when authenticated)
+const isAdmin = computed(() => isAuthenticated.value && page.props.auth.user?.role === 'admin')
 
 // Update current path when route changes
 const updateCurrentPath = () => {
   currentPath.value = window.location.pathname
-}
-
-// Debounced search function for navbar
-const performSearch = () => {
-  if (searchTimeout.value) {
-    clearTimeout(searchTimeout.value)
-  }
-  
-  searchTimeout.value = setTimeout(() => {
-    router.get(route('dashboard'), {
-      author: authorSearch.value,
-      category: categorySearch.value,
-      publisher: publisherSearch.value
-    }, {
-      preserveState: true,
-      replace: true,
-      only: ['books']
-    })
-  }, 500)
-}
-
-// Watch search filter changes
-watch([authorSearch, categorySearch, publisherSearch], () => {
-  if (isDashboard.value) {
-    performSearch()
-  }
-})
-
-// Clear all search filters
-const clearSearchFilters = () => {
-  authorSearch.value = ''
-  categorySearch.value = ''
-  publisherSearch.value = ''
-  
-  if (searchTimeout.value) {
-    clearTimeout(searchTimeout.value)
-  }
-  
-  if (isDashboard.value) {
-    router.get(route('dashboard'), {}, {
-      preserveState: true,
-      replace: true,
-      only: ['books']
-    })
-  }
 }
 
 // Load books data for stock validation - FIXED VERSION
@@ -404,6 +364,18 @@ const totalAmount = computed(() =>
   cartItems.value.reduce((sum, i) => sum + i.price * i.quantity, 0)
 )
 
+// Handle checkout based on authentication
+const handleCheckout = () => {
+  if (!isAuthenticated.value) {
+    // Store current cart and redirect to login
+    localStorage.setItem('pendingCheckout', 'true')
+    router.visit('/login')
+  } else {
+    // Proceed to payment if logged in
+    router.visit('/payment')
+  }
+}
+
 // Watch for cart modal state changes
 watch(showCart, (newValue) => {
   if (newValue) {
@@ -459,7 +431,7 @@ onUnmounted(() => {
 <template>
   <div>
     <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col">
-      <!-- Sidebar ekdom top e - SHOW ONLY FOR ADMIN -->
+      <!-- Sidebar ekdom top e - SHOW ONLY FOR ADMIN (and only when authenticated) -->
       <aside
         v-if="isAdmin"
         :class="[ 
@@ -618,8 +590,8 @@ onUnmounted(() => {
           <div class="flex justify-between h-16 items-center">
             <!-- Logo Section - LEFT SIDE -->
             <div class="flex items-center space-x-3">
-              <Link :href="route('dashboard')" class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                BookShop
+              <Link href="/" class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Book Haven
               </Link>
               <button
                 v-if="isAdmin"
@@ -653,9 +625,9 @@ onUnmounted(() => {
 
             <!-- Mobile: Dropdowns & Cart Icon (Hidden on desktop) -->
             <div class="sm:hidden flex items-center space-x-3">
-              <!-- Order List Button for Mobile (Visible only for non-admin users) -->
+              <!-- Order List Button for Mobile (Visible only for authenticated non-admin users) -->
               <Link
-                v-if="!isAdmin"
+                v-if="isAuthenticated && !isAdmin"
                 :href="route('order.list')"
                 class="flex items-center px-3 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg hover:from-teal-600 hover:to-emerald-600 transition-all duration-200 shadow-sm hover:shadow text-sm"
               >
@@ -664,6 +636,22 @@ onUnmounted(() => {
                 </svg>
                 Orders
               </Link>
+
+              <!-- Login/Register buttons for guests (Mobile) -->
+              <template v-if="!isAuthenticated">
+                <Link
+                  :href="route('login', { redirect: currentPath })"
+                  class="px-3 py-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium hover:bg-indigo-50 rounded-lg transition-all duration-200"
+                >
+                  Login
+                </Link>
+                <Link
+                  :href="route('register', { redirect: currentPath })"
+                  class="px-3 py-2 text-sm bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 transition-all duration-200 shadow-sm hover:shadow"
+                >
+                  Register
+                </Link>
+              </template>
 
               <!-- Cart Icon for Mobile -->
               <button @click="toggleCart" class="text-gray-700 hover:text-indigo-600 relative focus:outline-none p-1 rounded-lg hover:bg-indigo-50 transition-all duration-300">
@@ -678,8 +666,8 @@ onUnmounted(() => {
                 </span>
               </button>
 
-              <!-- Mobile User Menu -->
-              <Dropdown align="right" width="48">
+              <!-- Mobile User Menu (only for authenticated users) -->
+              <Dropdown v-if="isAuthenticated" align="right" width="48">
                 <template #trigger>
                   <span class="inline-flex rounded-lg hover:shadow-sm transition-all duration-300">
                     <button
@@ -723,52 +711,19 @@ onUnmounted(() => {
               </Dropdown>
             </div>
 
-            <!-- Search Boxes - SHOW ONLY ON DASHBOARD (Desktop) -->
-            <div v-if="isDashboard" class="hidden md:flex items-center space-x-2 flex-1 max-w-xl mx-4">
-              <!-- Author Search -->
-              <div class="relative flex-1">
-                <input
-                  v-model="authorSearch"
-                  type="text"
-                  placeholder="Search by author"
-                  class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
-                />
-              </div>
-
-              <!-- Category Search -->
-              <div class="relative flex-1">
-                <input
-                  v-model="categorySearch"
-                  type="text"
-                  placeholder="Search by category"
-                  class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
-                />
-              </div>
-
-              <!-- Publisher Search -->
-              <div class="relative flex-1">
-                <input
-                  v-model="publisherSearch"
-                  type="text"
-                  placeholder="Search by publisher"
-                  class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
-                />
-              </div>
-
-              <!-- Clear Search Button -->
-              <button
-                @click="clearSearchFilters"
-                class="px-3 py-2 text-sm bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-300 transition-all duration-300 border border-gray-300 whitespace-nowrap shadow-sm hover:shadow"
-              >
-                Clear
-              </button>
-            </div>
-
             <!-- Desktop: Dropdowns + Cart Icon + User Dropdown + Order List Button -->
-            <div class="hidden sm:flex sm:items-center sm:space-x-3">
-              <!-- Order List Button for Desktop (Visible only for non-admin users) -->
+            <div class="hidden sm:flex sm:items-center sm:space-x-4">
+              <!-- Home Button -->
+              <Link href="/" class="flex items-center text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-indigo-50 border border-transparent hover:border-indigo-100">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                Home
+              </Link>
+
+              <!-- Order List Button for Desktop (Visible only for authenticated non-admin users) -->
               <Link
-                v-if="!isAdmin"
+                v-if="isAuthenticated && !isAdmin"
                 :href="route('order.list')"
                 class="flex items-center px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg hover:from-teal-600 hover:to-emerald-600 transition-all duration-200 shadow-sm hover:shadow text-sm"
               >
@@ -780,7 +735,7 @@ onUnmounted(() => {
 
               <!-- Authors Dropdown -->
               <div class="relative group">
-                <button class="flex items-center text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-indigo-50">
+                <button class="flex items-center text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-indigo-50 border border-transparent hover:border-indigo-100">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
@@ -819,7 +774,7 @@ onUnmounted(() => {
 
               <!-- Categories Dropdown - WIDTH INCREASED -->
               <div class="relative group">
-                <button class="flex items-center text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-indigo-50">
+                <button class="flex items-center text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-indigo-50 border border-transparent hover:border-indigo-100">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                   </svg>
@@ -858,7 +813,7 @@ onUnmounted(() => {
 
               <!-- Publishers Dropdown -->
               <div class="relative group">
-                <button class="flex items-center text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-indigo-50">
+                <button class="flex items-center text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-indigo-50 border border-transparent hover:border-indigo-100">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
                   </svg>
@@ -895,8 +850,26 @@ onUnmounted(() => {
                 </div>
               </div>
 
+              <!-- Login/Register buttons for guests (Desktop) -->
+              <template v-if="!isAuthenticated">
+                <div class="flex items-center space-x-2 ml-2">
+                  <Link
+                    :href="route('login', { redirect: currentPath })"
+                    class="px-4 py-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium hover:bg-indigo-50 rounded-lg transition-all duration-200 border border-indigo-200 hover:border-indigo-300"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    :href="route('register', { redirect: currentPath })"
+                    class="px-4 py-2 text-sm bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 transition-all duration-200 shadow-sm hover:shadow"
+                  >
+                    Register
+                  </Link>
+                </div>
+              </template>
+
               <!-- Cart Icon -->
-              <button @click="toggleCart" class="text-gray-700 hover:text-indigo-600 relative focus:outline-none p-2 rounded-lg hover:bg-indigo-50 transition-all duration-300">
+              <button @click="toggleCart" class="text-gray-700 hover:text-indigo-600 relative focus:outline-none p-2 rounded-lg hover:bg-indigo-50 transition-all duration-300 border border-transparent hover:border-indigo-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.5 6H19m-12-6V6a1 1 0 011-1h4a1 1 0 011 1v7" />
@@ -908,14 +881,14 @@ onUnmounted(() => {
                 </span>
               </button>
 
-              <!-- User Dropdown - RIGHT ALIGNED -->
-              <div class="ml-2">
+              <!-- User Dropdown - RIGHT ALIGNED (only for authenticated users) -->
+              <div v-if="isAuthenticated" class="ml-2">
                 <Dropdown align="right" width="48">
                   <template #trigger>
                     <span class="inline-flex rounded-lg hover:shadow-sm transition-all duration-300">
                       <button
                         type="button"
-                        class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 bg-white hover:text-indigo-600 hover:bg-indigo-50 focus:outline-none transition-all duration-300 border border-gray-200"
+                        class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 bg-white hover:text-indigo-600 hover:bg-indigo-50 focus:outline-none transition-all duration-300 border border-gray-200 hover:border-indigo-100"
                       >
                         <div class="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center mr-2">
                           <span class="text-white text-sm font-semibold">{{ $page.props.auth.user.name.charAt(0) }}</span>
@@ -966,38 +939,6 @@ onUnmounted(() => {
                   </template>
                 </Dropdown>
               </div>
-            </div>
-          </div>
-
-          <!-- Mobile Search Boxes - SHOW ONLY ON DASHBOARD -->
-          <div v-if="isDashboard" class="md:hidden mt-3 space-y-2">
-            <div class="flex space-x-2">
-              <input
-                v-model="authorSearch"
-                type="text"
-                placeholder="Search by author"
-                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
-              />
-              <input
-                v-model="categorySearch"
-                type="text"
-                placeholder="Search by category"
-                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
-              />
-            </div>
-            <div class="flex space-x-2">
-              <input
-                v-model="publisherSearch"
-                type="text"
-                placeholder="Search by publisher"
-                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
-              />
-              <button
-                @click="clearSearchFilters"
-                class="px-3 py-2 text-sm bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-300 transition-all duration-300 border border-gray-300 shadow-sm"
-              >
-                Clear
-              </button>
             </div>
           </div>
         </div>
@@ -1115,17 +1056,23 @@ onUnmounted(() => {
                 <span class="text-lg font-semibold">${{ totalAmount.toFixed(2) }}</span>
               </div>
               <button
-                @click="router.visit('/payment')"
+                @click="handleCheckout"
                 :disabled="cartItems.some(item => item.quantity > item.stock)"
                 class="w-full py-3 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center"
                 :class="cartItems.some(item => item.quantity > item.stock) 
                   ? 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-600 cursor-not-allowed' 
-                  : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 hover:shadow-lg'"
+                  : isAuthenticated 
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 hover:shadow-lg'
+                    : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 hover:shadow-lg'"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" v-if="!cartItems.some(item => item.quantity > item.stock)">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>
-                {{ cartItems.some(item => item.quantity > item.stock) ? 'Fix Stock Issues First' : 'Proceed to Payment' }}
+                {{ cartItems.some(item => item.quantity > item.stock) 
+                  ? 'Fix Stock Issues First' 
+                  : isAuthenticated 
+                    ? 'Proceed to Payment' 
+                    : 'Login to Checkout' }}
               </button>
             </div>
           </div>
@@ -1139,5 +1086,168 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Rokomari-style Footer (Added here) -->
+    <footer class="bg-gradient-to-b from-gray-900 to-black text-gray-300">
+      <!-- Main Footer -->
+      <div class="max-w-7xl mx-auto px-4 py-10">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          
+          <!-- Company Info -->
+          <div>
+            <h3 class="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-4">
+              Book Haven
+            </h3>
+            <p class="text-gray-400 mb-4">
+              Bangladesh's largest online bookstore. We offer millions of books at the best prices.
+            </p>
+            <div class="flex space-x-4">
+              <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
+                </svg>
+              </a>
+              <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"/>
+                </svg>
+              </a>
+              <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069z"/>
+                  <path d="M12 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4z"/>
+                  <circle cx="18.406" cy="5.594" r="1.44"/>
+                </svg>
+              </a>
+              <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+                </svg>
+              </a>
+            </div>
+          </div>
+
+          <!-- Quick Links -->
+          <div>
+            <h4 class="text-lg font-semibold text-white mb-4">Quick Links</h4>
+            <ul class="space-y-2">
+              <li><a href="/dashboard" class="hover:text-white transition-colors">Home</a></li>
+              <li><a href="#" class="hover:text-white transition-colors">All Books</a></li>
+              <li><a href="#" class="hover:text-white transition-colors">Best Sellers</a></li>
+              <li><a href="#" class="hover:text-white transition-colors">New Arrivals</a></li>
+              <li><a href="#" class="hover:text-white transition-colors">Discounts</a></li>
+              <li><a href="#" class="hover:text-white transition-colors">Contact Us</a></li>
+            </ul>
+          </div>
+
+          <!-- Categories -->
+          <div>
+            <h4 class="text-lg font-semibold text-white mb-4">Categories</h4>
+            <div v-if="categoriesLoading" class="text-center py-2">
+              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-400 mx-auto"></div>
+              <p class="text-sm text-gray-400 mt-2">Loading categories...</p>
+            </div>
+            <ul v-else-if="categories.length > 0" class="space-y-2">
+              <li v-for="category in categories" :key="category.id">
+                <a 
+                  href="#" 
+                  @click.prevent="openCategoryDetails(category)"
+                  class="hover:text-white transition-colors flex items-center group"
+                >
+                  <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                  {{ category.name }}
+                </a>
+              </li>
+            </ul>
+            <div v-else class="text-center py-2">
+              <p class="text-sm text-gray-400">No categories available</p>
+            </div>
+          </div>
+
+          <!-- Contact & Support -->
+          <div>
+            <h4 class="text-lg font-semibold text-white mb-4">Contact & Support</h4>
+            <ul class="space-y-2">
+              <li class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                </svg>
+                <span>Sylhet, Bangladesh</span>
+              </li>
+              <li class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+                </svg>
+                <span>+880 1319513026</span>
+              </li>
+              <li class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                </svg>
+                <span>support@bookhaven.com</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Payment Methods -->
+        <div class="mt-10 pt-8 border-t border-gray-800">
+          <h5 class="text-lg font-semibold text-white mb-4 text-center">We Accept</h5>
+          <div class="flex flex-wrap justify-center items-center gap-4">
+            <div class="bg-white p-2 rounded-lg">
+              <svg class="w-10 h-10 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <div class="bg-white p-2 rounded-lg">
+              <span class="text-lg font-bold text-gray-800">bKash</span>
+            </div>
+            <div class="bg-white p-2 rounded-lg">
+              <span class="text-lg font-bold text-gray-800">Nagad</span>
+            </div>
+            <div class="bg-white p-2 rounded-lg">
+              <svg class="w-10 h-10 text-blue-800" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM7.07 18.28c.43-.9 3.05-1.78 4.93-1.78s4.51.88 4.93 1.78C15.57 19.36 13.86 20 12 20s-3.57-.64-4.93-1.72zm11.29-1.45c-1.43-1.74-4.9-2.33-6.36-2.33s-4.93.59-6.36 2.33C4.62 15.49 4 13.82 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8c0 1.82-.62 3.49-1.64 4.83zM12 6c-1.94 0-3.5 1.56-3.5 3.5S10.06 13 12 13s3.5-1.56 3.5-3.5S13.94 6 12 6zm0 5c-.83 0-1.5-.67-1.5-1.5S11.17 8 12 8s1.5.67 1.5 1.5S12.83 11 12 11z"/>
+              </svg>
+            </div>
+            <div class="bg-white p-2 rounded-lg">
+              <span class="text-lg font-bold text-gray-800">VISA</span>
+            </div>
+            <div class="bg-white p-2 rounded-lg">
+              <span class="text-lg font-bold text-gray-800">MasterCard</span>
+            </div>
+            <div class="bg-white p-2 rounded-lg">
+              <span class="text-lg font-bold text-gray-800">Cash on Delivery</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Footer -->
+      <div class="bg-black py-6">
+        <div class="max-w-7xl mx-auto px-4">
+          <div class="flex flex-col md:flex-row justify-between items-center">
+            <div class="text-center md:text-left mb-4 md:mb-0">
+              <p class="text-gray-400 text-sm">
+                &copy; 2024 Book Shop. All rights reserved.
+              </p>
+              <p class="text-gray-500 text-xs mt-1">
+                A proud initiative to promote reading culture in Bangladesh
+              </p>
+            </div>
+            <div class="flex flex-wrap justify-center gap-4">
+              <a href="#" class="text-gray-400 hover:text-white text-sm transition-colors">Privacy Policy</a>
+              <a href="#" class="text-gray-400 hover:text-white text-sm transition-colors">Terms & Conditions</a>
+              <a href="#" class="text-gray-400 hover:text-white text-sm transition-colors">Return Policy</a>
+              <a href="#" class="text-gray-400 hover:text-white text-sm transition-colors">FAQ</a>
+              <a href="#" class="text-gray-400 hover:text-white text-sm transition-colors">Contact Us</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
   </div>
 </template>

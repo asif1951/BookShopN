@@ -13,33 +13,33 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $query = Book::withCount('feedbacks')
-            ->with(['feedbacks' => function($query) {
+            ->with(['feedbacks' => function ($query) {
                 $query->select('book_id', 'rating');
             }]);
-        
+
         // Search by author
         if ($request->has('author') && $request->author) {
             $query->where('author', 'like', '%' . $request->author . '%');
         }
-        
+
         // Search by category
         if ($request->has('category') && $request->category) {
             $query->where('category', 'like', '%' . $request->category . '%');
         }
-        
+
         // Search by publisher
         if ($request->has('publisher') && $request->publisher) {
             $query->where('publisher', 'like', '%' . $request->publisher . '%');
         }
-        
-        $books = $query->get()->map(function($book) {
+
+        $books = $query->get()->map(function ($book) {
             // Calculate average rating
             $averageRating = 0;
             if ($book->feedbacks_count > 0) {
                 $totalRating = $book->feedbacks->sum('rating');
                 $averageRating = round($totalRating / $book->feedbacks_count, 1);
             }
-            
+
             // Calculate rating distribution
             $ratingDistribution = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
             foreach ($book->feedbacks as $feedback) {
@@ -47,14 +47,14 @@ class DashboardController extends Controller
                     $ratingDistribution[$feedback->rating]++;
                 }
             }
-            
+
             // Calculate percentages
             $ratingPercentages = [];
             for ($i = 5; $i >= 1; $i--) {
-                $ratingPercentages[$i] = $book->feedbacks_count > 0 ? 
+                $ratingPercentages[$i] = $book->feedbacks_count > 0 ?
                     round(($ratingDistribution[$i] / $book->feedbacks_count) * 100, 0) : 0;
             }
-            
+
             return [
                 'id' => $book->id,
                 'title' => $book->title,
@@ -73,11 +73,11 @@ class DashboardController extends Controller
                 'updated_at' => $book->updated_at
             ];
         });
-        
+
         return Inertia::render('Dashboard', [
             'books' => $books,
-            'isAdmin' => auth()->user()->role === 'admin',
-            'userRole' => auth()->user()->role,
+            // 'isAdmin' => auth()->user()->role === 'admin',
+            // 'userRole' => auth()->user()->role,
             'filters' => $request->only(['author', 'category', 'publisher'])
         ]);
     }

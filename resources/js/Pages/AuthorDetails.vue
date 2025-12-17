@@ -61,13 +61,14 @@
                         <div
                             v-for="book in books"
                             :key="book.id"
-                            class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden group"
+                            class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden group flex flex-col h-full"
                         >
-                            <div class="relative">
+                            <!-- Book Image Container with fixed height -->
+                            <div class="relative h-56 overflow-hidden">
                                 <img
                                     :src="book.photo ? `/storage/${book.photo}` : 'https://via.placeholder.com/300x400?text=No+Image'"
                                     :alt="book.title"
-                                    class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                 />
                                 <div class="absolute top-2 right-2">
                                     <span 
@@ -79,38 +80,49 @@
                                 </div>
                             </div>
                             
-                            <div class="p-4">
+                            <!-- Book Info Container with flex-grow -->
+                            <div class="p-4 flex flex-col flex-grow">
+                                <!-- Book Title with fixed height -->
                                 <h3 
                                     @click="viewBookDetails(book)"
-                                    class="font-semibold text-lg text-gray-800 mb-2 line-clamp-2 hover:text-indigo-600 cursor-pointer"
+                                    class="font-semibold text-lg text-gray-800 mb-2 line-clamp-2 hover:text-indigo-600 cursor-pointer min-h-[3.5rem]"
                                 >
                                     {{ book.title }}
                                 </h3>
                                 
-                                <div class="space-y-1 text-sm text-gray-600 mb-3">
-                                    <p><span class="font-medium">Category:</span> {{ book.category || 'N/A' }}</p>
-                                    <p><span class="font-medium">Publisher:</span> {{ book.publisher || 'N/A' }}</p>
+                                <!-- Book Details with fixed height -->
+                                <div class="space-y-1 text-sm text-gray-600 mb-3 min-h-[4.5rem]">
+                                    <p class="line-clamp-1">
+                                        <span class="font-medium">Category:</span> {{ book.category || 'N/A' }}
+                                    </p>
+                                    <p class="line-clamp-1">
+                                        <span class="font-medium">Publisher:</span> {{ book.publisher || 'N/A' }}
+                                    </p>
+                                    <p class="line-clamp-1">
+                                        <span class="font-medium">Author:</span> {{ book.author || 'N/A' }}
+                                    </p>
                                 </div>
                                 
-                                <div class="flex justify-between items-center">
+                                <!-- Price and Stock in same line -->
+                                <div class="flex justify-between items-center mb-3 mt-auto">
                                     <p class="text-indigo-600 font-bold text-lg">${{ book.price }}</p>
-                                    <p class="text-sm" :class="book.stock > 0 ? 'text-green-600' : 'text-red-600'">
+                                    <p class="text-sm font-medium" :class="book.stock > 0 ? 'text-green-600' : 'text-red-600'">
                                         {{ book.stock }} left
                                     </p>
                                 </div>
                                 
-                                <!-- Add to Cart Button -->
+                                <!-- Add to Cart Button - Always at bottom -->
                                 <button
                                     v-if="book.stock > 0"
                                     @click="addToCart(book)"
-                                    class="w-full mt-3 bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition-colors duration-200 font-medium"
+                                    class="w-full bg-green-500 text-white py-2.5 rounded-md hover:bg-green-600 transition-colors duration-200 font-medium text-sm"
                                 >
                                     Add to Cart
                                 </button>
                                 <button
                                     v-else
                                     disabled
-                                    class="w-full mt-3 bg-gray-400 text-white py-2 rounded-md cursor-not-allowed font-medium"
+                                    class="w-full bg-gray-400 text-white py-2.5 rounded-md cursor-not-allowed font-medium text-sm"
                                 >
                                     Out of Stock
                                 </button>
@@ -176,10 +188,25 @@ const viewBookDetails = (book) => {
 </script>
 
 <style scoped>
+.line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+.min-h-\[3\.5rem\] {
+    min-height: 3.5rem;
+}
+
+.min-h-\[4\.5rem\] {
+    min-height: 4.5rem;
 }
 </style>

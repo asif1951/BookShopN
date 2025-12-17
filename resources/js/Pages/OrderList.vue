@@ -285,6 +285,138 @@
                     </div>
                 </div>
 
+                <!-- Order Details Modal -->
+                <div v-if="selectedOrder" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                    <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+                        <div class="mt-3">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-medium leading-6 text-gray-900">
+                                    Order Details - #{{ selectedOrder.id }}
+                                </h3>
+                                <button
+                                    @click="selectedOrder = null"
+                                    class="text-gray-400 hover:text-gray-600"
+                                >
+                                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- Order Information -->
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <h4 class="font-semibold text-gray-700 mb-3">Order Information</h4>
+                                    <div class="space-y-2">
+                                        <p><span class="font-medium">Order ID:</span> #{{ selectedOrder.id }}</p>
+                                        <p><span class="font-medium">Transaction ID:</span> {{ selectedOrder.transaction_id || 'N/A' }}</p>
+                                        <p><span class="font-medium">Order Date:</span> {{ formatDate(selectedOrder.created_at) }}</p>
+                                        <p><span class="font-medium">Status:</span> 
+                                            <span class="px-2 py-1 text-xs rounded-full" :class="getStatusClass(selectedOrder.status)">
+                                                {{ selectedOrder.status }}
+                                            </span>
+                                        </p>
+                                        <p><span class="font-medium">Payment Method:</span> {{ selectedOrder.payment_method }}</p>
+                                        <p><span class="font-medium">Payment Status:</span> 
+                                            <span class="px-2 py-1 text-xs rounded-full" :class="getPaymentStatusClass(selectedOrder.payment_status)">
+                                                {{ selectedOrder.payment_status }}
+                                            </span>
+                                        </p>
+                                        <p><span class="font-medium">Total Amount:</span> <span class="font-bold">${{ selectedOrder.total_amount }}</span></p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Customer Information -->
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <h4 class="font-semibold text-gray-700 mb-3">Customer Information</h4>
+                                    <div class="space-y-2">
+                                        <p><span class="font-medium">Name:</span> {{ selectedOrder.user?.name || 'N/A' }}</p>
+                                        <p><span class="font-medium">Email:</span> {{ selectedOrder.user?.email || 'N/A' }}</p>
+                                        <div v-if="selectedOrder.shipping_address">
+                                            <p class="font-medium">Shipping Address:</p>
+                                            <p class="text-sm">{{ selectedOrder.shipping_address.address_line1 }}</p>
+                                            <p class="text-sm" v-if="selectedOrder.shipping_address.address_line2">{{ selectedOrder.shipping_address.address_line2 }}</p>
+                                            <p class="text-sm">{{ selectedOrder.shipping_address.city }}, {{ selectedOrder.shipping_address.state }}</p>
+                                            <p class="text-sm">{{ selectedOrder.shipping_address.country }} - {{ selectedOrder.shipping_address.postal_code }}</p>
+                                            <p class="text-sm"><span class="font-medium">Phone:</span> {{ selectedOrder.shipping_address.phone || 'N/A' }}</p>
+                                        </div>
+                                        <div v-else>
+                                            <p class="text-gray-500">No shipping address provided</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Order Items -->
+                                <div class="md:col-span-2 bg-gray-50 p-4 rounded-lg">
+                                    <h4 class="font-semibold text-gray-700 mb-3">Order Items</h4>
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-200">
+                                            <thead class="bg-gray-100">
+                                                <tr>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white divide-y divide-gray-200">
+                                                <tr v-for="item in selectedOrder.items" :key="item.id">
+                                                    <td class="px-4 py-2">
+                                                        <div class="font-medium text-gray-900">{{ item.book?.title || 'Unknown Book' }}</div>
+                                                        <div class="text-sm text-gray-500">by {{ item.book?.author || 'Unknown Author' }}</div>
+                                                    </td>
+                                                    <td class="px-4 py-2">${{ item.book?.price || '0.00' }}</td>
+                                                    <td class="px-4 py-2">{{ item.quantity }}</td>
+                                                    <td class="px-4 py-2 font-medium">${{ (parseFloat(item.book?.price || 0) * item.quantity).toFixed(2) }}</td>
+                                                </tr>
+                                                <tr class="bg-gray-50">
+                                                    <td colspan="3" class="px-4 py-2 text-right font-medium">Subtotal:</td>
+                                                    <td class="px-4 py-2 font-medium">${{ selectedOrder.total_amount }}</td>
+                                                </tr>
+                                                <tr class="bg-gray-50">
+                                                    <td colspan="3" class="px-4 py-2 text-right font-medium">Tax (0%):</td>
+                                                    <td class="px-4 py-2 font-medium">$0.00</td>
+                                                </tr>
+                                                <tr class="bg-gray-100">
+                                                    <td colspan="3" class="px-4 py-2 text-right font-bold">Grand Total:</td>
+                                                    <td class="px-4 py-2 font-bold">${{ selectedOrder.total_amount }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-6 flex justify-end space-x-3">
+                                <button
+                                    @click="printSingleOrder(selectedOrder)"
+                                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition flex items-center space-x-2"
+                                >
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                                    </svg>
+                                    <span>Print Invoice</span>
+                                </button>
+                                <button
+                                    @click="downloadOrderPDF(selectedOrder)"
+                                    class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition flex items-center space-x-2"
+                                >
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <span>Download PDF</span>
+                                </button>
+                                <button
+                                    @click="selectedOrder = null"
+                                    class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Statistics Cards - শুধু Admin এর জন্য -->
                 <div v-if="isAdmin" class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
                     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
@@ -401,14 +533,19 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Date
                                     </th>
+                                    <!-- Print Column - সকল User এর জন্য -->
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Actions
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <tr v-for="order in orders.data" :key="order.id" class="hover:bg-gray-50 transition-colors">
+                                    <!-- Order ID with clickable details -->
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div>
+                                        <div class="cursor-pointer hover:text-blue-600 transition" @click="showOrderDetails(order)">
                                             <p class="text-sm font-medium text-gray-900">#{{ order.id }}</p>
-                                            <p class="text-xs text-gray-500 mt-1">Transaction: {{ order.transaction_id || 'N/A' }}</p>
+                                            <p class="text-xs text-gray-500 mt-1">Click for details</p>
                                         </div>
                                     </td>
                                     <!-- Customer Data - সব User এর জন্য -->
@@ -466,6 +603,56 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {{ formatDate(order.created_at) }}
+                                    </td>
+                                    <!-- Action Buttons with tooltips -->
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <div class="flex space-x-2">
+                                            <!-- Details Button -->
+                                            <button
+                                                @click="showOrderDetails(order)"
+                                                title="View Details"
+                                                class="relative text-gray-600 hover:text-blue-700 transition-colors p-2 hover:bg-blue-50 rounded group"
+                                            >
+                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                                    View Details
+                                                </div>
+                                            </button>
+                                            
+                                            <!-- Print Button -->
+                                            <button
+                                                @click="() => printSingleOrder(order)"
+                                                title="Print this order"
+                                                class="relative text-gray-600 hover:text-blue-700 transition-colors p-2 hover:bg-blue-50 rounded group"
+                                            >
+                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                                                </svg>
+                                                <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                                    Print Invoice
+                                                </div>
+                                            </button>
+                                            
+                                            <!-- Download PDF Button with detailed tooltip -->
+                                            <button
+                                                @click="() => downloadOrderPDF(order)"
+                                                title="Download PDF Invoice"
+                                                class="relative text-gray-600 hover:text-red-700 transition-colors p-2 hover:bg-red-50 rounded group"
+                                            >
+                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                                </svg>
+                                                <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                                    <div class="text-center">
+                                                        <div class="font-semibold">Download PDF</div>
+                                                        <div class="text-gray-300">Invoice with professional design</div>
+                                                        <div class="text-gray-300">Tax: 0% | All details included</div>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             </tbody>
@@ -635,6 +822,9 @@ export default {
             endDate: ''
         })
 
+        // Selected Order for Details Modal
+        const selectedOrder = ref(null)
+
         // Filtered orders for preview
         const filteredOrders = computed(() => {
             if (orderSelectionType.value === 'all') {
@@ -763,6 +953,11 @@ export default {
             })
         }
 
+        // Show order details modal
+        const showOrderDetails = (order) => {
+            selectedOrder.value = order
+        }
+
         // Custom alert function for better UX
         const showAlert = (message, type = 'info') => {
             alert(message)
@@ -852,7 +1047,7 @@ export default {
             }
         }
 
-        // Client-side PDF generation using jsPDF with UTF-8 support
+        // Client-side PDF generation using jsPDF with UTF-8 support - PROFESSIONAL DESIGN
         const generateClientSidePDF = async (ordersToExport) => {
             try {
                 // Check if jsPDF is available
@@ -869,17 +1064,32 @@ export default {
                 const margin = 20
                 const contentWidth = pageWidth - (margin * 2)
                 
-                // Add header with date range info - Using English text only
-                doc.setFontSize(16)
-                doc.setFont("helvetica", "bold")
-                doc.setTextColor(0, 0, 0)
-                doc.text(props.isAdmin ? "ORDERS REPORT" : "MY ORDERS", margin, yPos)
+                // Professional Header with Dark Blue Color
+                doc.setFillColor(30, 58, 138) // Professional dark blue
+                doc.rect(0, 0, pageWidth, 35, 'F')
                 
-                yPos += 8
+                // Header text
+                doc.setFontSize(22)
+                doc.setFont("helvetica", "bold")
+                doc.setTextColor(255, 255, 255)
+                doc.text(props.isAdmin ? "ORDER MANAGEMENT REPORT" : "PURCHASE HISTORY", pageWidth / 2, 20, { align: 'center' })
+                
+                // Subtitle
                 doc.setFontSize(10)
                 doc.setFont("helvetica", "normal")
+                doc.text("Book Store - Official Report", pageWidth / 2, 27, { align: 'center' })
                 
-                // Add date range info if applicable
+                // Report info
+                doc.setFontSize(9)
+                doc.setTextColor(200, 200, 200)
+                doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })}`, margin, 32)
+                
                 let dateRangeText = ''
                 if (orderSelectionType.value === 'dateRange') {
                     if (dateRange.value.startDate && dateRange.value.endDate) {
@@ -889,174 +1099,214 @@ export default {
                     } else if (dateRange.value.endDate) {
                         dateRangeText = `Until ${formatDateDisplay(dateRange.value.endDate)}`
                     }
-                    doc.text(`Date Range: ${dateRangeText}`, margin, yPos)
-                    yPos += 5
+                    doc.text(`Period: ${dateRangeText}`, pageWidth - margin, 32, { align: 'right' })
                 } else {
-                    doc.text(`All Orders`, margin, yPos)
-                    yPos += 5
+                    doc.text(`Period: All Records`, pageWidth - margin, 32, { align: 'right' })
                 }
                 
-                doc.text(`Generated on: ${new Date().toLocaleDateString()}`, margin, yPos)
-                doc.text(`Total Orders: ${ordersToExport.length}`, pageWidth - margin - doc.getTextWidth(`Total Orders: ${ordersToExport.length}`), yPos)
+                yPos = 45
                 
-                yPos += 15
-                
-                // Add summary section for admin
+                // Summary section - Professional minimalist design
                 if (props.isAdmin && statusCounts.value) {
                     doc.setFontSize(12)
                     doc.setFont("helvetica", "bold")
-                    doc.text("Order Summary", margin, yPos)
+                    doc.setTextColor(30, 58, 138)
+                    doc.text("SUMMARY OVERVIEW", margin, yPos)
                     yPos += 8
                     
-                    doc.setFontSize(10)
+                    // Summary stats in a clean table format
+                    doc.setFontSize(9)
                     doc.setFont("helvetica", "normal")
-                    const summaryPoints = [
-                        `Pending: ${statusCounts.value.pending}`,
-                        `Confirmed: ${statusCounts.value.confirmed}`,
-                        `Processing: ${statusCounts.value.processing}`,
-                        `Shipped: ${statusCounts.value.shipped}`,
-                        `Delivered: ${statusCounts.value.delivered}`,
-                        `Cancelled: ${statusCounts.value.cancelled || 0}`
+                    doc.setTextColor(100, 100, 100)
+                    
+                    const summaryData = [
+                        { label: 'Total Orders', value: ordersToExport.length, color: [30, 58, 138] },
+                        { label: 'Pending', value: statusCounts.value.pending, color: [245, 158, 11] },
+                        { label: 'Confirmed', value: statusCounts.value.confirmed, color: [59, 130, 246] },
+                        { label: 'Processing', value: statusCounts.value.processing, color: [139, 92, 246] },
+                        { label: 'Shipped', value: statusCounts.value.shipped, color: [16, 185, 129] },
+                        { label: 'Delivered', value: statusCounts.value.delivered, color: [14, 165, 233] },
+                        { label: 'Cancelled', value: statusCounts.value.cancelled || 0, color: [239, 68, 68] }
                     ]
                     
-                    summaryPoints.forEach(point => {
-                        if (yPos > 270) {
-                            doc.addPage()
-                            yPos = 20
-                        }
-                        doc.text(`• ${point}`, margin + 5, yPos)
-                        yPos += 6
-                    })
+                    let xPos = margin
+                    const boxWidth = (contentWidth - 30) / 7 // 7 boxes with spacing
                     
-                    yPos += 5
+                    for (let i = 0; i < summaryData.length; i++) {
+                        // Box with subtle border
+                        doc.setDrawColor(summaryData[i].color[0], summaryData[i].color[1], summaryData[i].color[2])
+                        doc.setLineWidth(0.3)
+                        doc.rect(xPos, yPos, boxWidth, 15)
+                        
+                        // Value
+                        doc.setFontSize(10)
+                        doc.setFont("helvetica", "bold")
+                        doc.setTextColor(summaryData[i].color[0], summaryData[i].color[1], summaryData[i].color[2])
+                        doc.text(summaryData[i].value.toString(), xPos + boxWidth/2, yPos + 7, { align: 'center' })
+                        
+                        // Label
+                        doc.setFontSize(7)
+                        doc.setTextColor(100, 100, 100)
+                        doc.text(summaryData[i].label.toUpperCase(), xPos + boxWidth/2, yPos + 12, { align: 'center' })
+                        
+                        xPos += boxWidth + 5
+                    }
+                    
+                    yPos += 25
                 }
                 
-                // Add table
-                doc.setFontSize(12)
-                doc.setFont("helvetica", "bold")
-                doc.text("Order Details", margin, yPos)
+                // Report metadata
+                const totalAmount = ordersToExport.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0).toFixed(2)
+                doc.setFontSize(10)
+                doc.setTextColor(30, 58, 138)
+                doc.text(`Total Amount: $${totalAmount} | ${ordersToExport.length} Orders`, margin, yPos)
                 yPos += 10
                 
-                // Table headers
-                doc.setFontSize(10)
-                const headers = ["Order ID", props.isAdmin ? "Customer" : "", "Amount", "Payment", "Status", "Date"]
-                const colWidths = [20, props.isAdmin ? 40 : 0, 25, 30, 35, 40]
+                // Add subtle divider
+                doc.setDrawColor(200, 200, 200)
+                doc.setLineWidth(0.5)
+                doc.line(margin, yPos, pageWidth - margin, yPos)
+                yPos += 15
+                
+                // Order details table with professional design
+                doc.setFontSize(13)
+                doc.setFont("helvetica", "bold")
+                doc.setTextColor(30, 58, 138)
+                doc.text("ORDER DETAILS", margin, yPos)
+                yPos += 10
+                
+                // Table headers with professional gray background
+                doc.setFillColor(249, 250, 251)
+                doc.rect(margin, yPos, contentWidth, 8, 'F')
+                doc.setDrawColor(209, 213, 219)
+                doc.rect(margin, yPos, contentWidth, 8, 'S')
+                
+                doc.setTextColor(55, 65, 81)
+                doc.setFontSize(9)
+                doc.setFont("helvetica", "bold")
+                
+                const headers = ["Order ID", props.isAdmin ? "Customer" : "", "Amount", "Status", "Date"]
+                const colWidths = [25, props.isAdmin ? 45 : 0, 25, 25, 40]
                 
                 // Adjust colWidths if not admin
                 if (!props.isAdmin) {
-                    colWidths[1] = 0 // Remove customer column width
-                    // Redistribute the remaining width
-                    const totalUsedWidth = colWidths.reduce((a, b) => a + b, 0)
-                    const remainingWidth = contentWidth - totalUsedWidth
-                    // Add remaining width to date column
-                    colWidths[5] += remainingWidth
+                    colWidths[1] = 0
+                    colWidths[3] = 35
+                    colWidths[4] = 55
                 }
                 
-                // Draw table header
+                // Draw table header text
                 let xPos = margin
                 headers.forEach((header, index) => {
                     if (colWidths[index] > 0 && header !== "") {
-                        doc.setFillColor(240, 240, 240)
-                        doc.rect(xPos, yPos, colWidths[index], 8, 'F')
-                        doc.setTextColor(0, 0, 0)
-                        doc.setFont("helvetica", "bold")
-                        
-                        // Adjust text position based on column
-                        let textX = xPos + 3
-                        let textY = yPos + 5
-                        
-                        doc.text(header, textX, textY)
+                        doc.text(header, xPos + 3, yPos + 5.5)
                         xPos += colWidths[index]
                     }
                 })
                 
-                yPos += 8
+                yPos += 10
                 
-                // Draw table rows
+                // Table rows with alternating colors
                 doc.setFont("helvetica", "normal")
-                doc.setFontSize(9)
+                doc.setFontSize(8)
                 
                 ordersToExport.forEach((order, index) => {
                     // Check if we need a new page
                     if (yPos > 270) {
                         doc.addPage()
                         yPos = 20
+                        // Add header to new page
+                        doc.setFillColor(30, 58, 138)
+                        doc.rect(0, 0, pageWidth, 15, 'F')
+                        doc.setFontSize(10)
+                        doc.setFont("helvetica", "bold")
+                        doc.setTextColor(255, 255, 255)
+                        doc.text("ORDER MANAGEMENT REPORT - CONTINUED", pageWidth / 2, 10, { align: 'center' })
+                        yPos = 25
                     }
                     
-                    // Alternate row colors
+                    // Alternate row colors for readability
                     if (index % 2 === 0) {
                         doc.setFillColor(250, 250, 250)
                         doc.rect(margin, yPos - 1, contentWidth, 7, 'F')
                     }
                     
                     xPos = margin
-                    // Handle book titles - remove non-ASCII characters to prevent encoding issues
-                    const customerName = props.isAdmin ? (order.user?.name || 'N/A') : ''
-                    const cleanCustomerName = customerName.replace(/[^\x00-\x7F]/g, '') // Remove non-ASCII
                     
-                    const rowData = [
-                        `#${order.id}`,
-                        props.isAdmin ? cleanCustomerName : '',
-                        `$${order.total_amount}`,
-                        order.payment_status,
-                        order.status,
-                        formatDateForPDF(order.created_at)
-                    ]
+                    // Order ID
+                    doc.setTextColor(30, 58, 138)
+                    doc.setFont("helvetica", "bold")
+                    doc.text(`#${order.id}`, xPos + 3, yPos + 4.5)
+                    xPos += colWidths[0]
                     
-                    rowData.forEach((data, colIndex) => {
-                        if (colWidths[colIndex] > 0 && headers[colIndex] !== "") {
-                            // Truncate long text
-                            let displayText = data
-                            const maxChars = Math.floor(colWidths[colIndex] / 1.5)
-                            if (displayText.length > maxChars) {
-                                displayText = displayText.substring(0, maxChars) + '...'
-                            }
-                            
-                            doc.setTextColor(0, 0, 0)
-                            
-                            // Status color coding
-                            if (colIndex === 4) { // Status column
-                                if (order.status === 'pending') doc.setTextColor(255, 193, 7)
-                                else if (order.status === 'confirmed') doc.setTextColor(13, 110, 253)
-                                else if (order.status === 'processing') doc.setTextColor(111, 66, 193)
-                                else if (order.status === 'shipped') doc.setTextColor(25, 135, 84)
-                                else if (order.status === 'delivered') doc.setTextColor(32, 201, 151)
-                                else if (order.status === 'cancelled') doc.setTextColor(220, 53, 69)
-                            }
-                            
-                            doc.text(displayText, xPos + 3, yPos + 4)
-                            xPos += colWidths[colIndex]
-                        }
-                    })
-                    
-                    yPos += 7
-                    
-                    // Add item details below each order - শুধু quantity দেখাবো
-                    if (yPos > 250) {
-                        doc.addPage()
-                        yPos = 20
+                    // Customer name (if admin)
+                    if (props.isAdmin && colWidths[1] > 0) {
+                        const customerName = order.user?.name || 'N/A'
+                        const cleanCustomerName = customerName.replace(/[^\x00-\x7F]/g, '')
+                        doc.setTextColor(55, 65, 81)
+                        doc.setFont("helvetica", "normal")
+                        doc.text(cleanCustomerName.substring(0, 20), xPos + 3, yPos + 4.5)
+                        xPos += colWidths[1]
                     }
                     
-                    // Add total items information (শুধু মোট আইটেম সংখ্যা)
+                    // Amount
+                    doc.setTextColor(16, 185, 129)
+                    doc.setFont("helvetica", "bold")
+                    doc.text(`$${order.total_amount}`, xPos + 3, yPos + 4.5)
+                    xPos += colWidths[2]
+                    
+                    // Status with colored indicator
+                    doc.setTextColor(55, 65, 81)
+                    const statusColors = {
+                        pending: [245, 158, 11],
+                        confirmed: [59, 130, 246],
+                        processing: [139, 92, 246],
+                        shipped: [16, 185, 129],
+                        delivered: [14, 165, 233],
+                        cancelled: [239, 68, 68]
+                    }
+                    const color = statusColors[order.status] || [100, 100, 100]
+                    doc.setFillColor(color[0], color[1], color[2], 0.1)
+                    doc.setDrawColor(color[0], color[1], color[2])
+                    doc.setLineWidth(0.3)
+                    doc.roundedRect(xPos + 3, yPos - 0.5, 18, 5, 1, 1, 'FD')
+                    doc.setTextColor(color[0], color[1], color[2])
+                    doc.setFontSize(7)
+                    doc.text(order.status.charAt(0).toUpperCase(), xPos + 12, yPos + 3.5, { align: 'center' })
                     doc.setFontSize(8)
-                    doc.setTextColor(100, 100, 100)
-                    doc.text(`  • Total Items: ${getTotalItems(order)}`, margin + 5, yPos + 4)
-                    yPos += 8
+                    xPos += colWidths[3]
+                    
+                    // Date
+                    doc.setTextColor(107, 114, 128)
+                    doc.text(formatDateForPDF(order.created_at), xPos + 3, yPos + 4.5)
+                    
+                    yPos += 7
                 })
                 
-                // Add footer
+                // Add footer with professional information
                 const totalPages = doc.internal.getNumberOfPages()
                 for (let i = 1; i <= totalPages; i++) {
                     doc.setPage(i)
+                    
+                    // Page number
                     doc.setFontSize(8)
-                    doc.setTextColor(150, 150, 150)
+                    doc.setTextColor(107, 114, 128)
                     doc.text(`Page ${i} of ${totalPages}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' })
-                    doc.text(`Generated from ${window.location.hostname}`, margin, doc.internal.pageSize.getHeight() - 10)
+                    
+                    // Footer line
+                    doc.setDrawColor(229, 231, 235)
+                    doc.setLineWidth(0.5)
+                    doc.line(margin, doc.internal.pageSize.getHeight() - 15, pageWidth - margin, doc.internal.pageSize.getHeight() - 15)
+                    
+                    // Company info
+                    doc.setFontSize(7)
+                    doc.text("Book Store Ltd. | Professional Invoice System", margin, doc.internal.pageSize.getHeight() - 5)
+                    doc.text(`Report ID: BS-${Date.now().toString().slice(-8)}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 5, { align: 'right' })
                 }
                 
                 // Generate filename with date range
                 const timestamp = new Date().toISOString().slice(0, 10)
-                let fileName = props.isAdmin ? `orders-report-${timestamp}` : `my-orders-${timestamp}`
+                let fileName = props.isAdmin ? `order-report-${timestamp}` : `my-orders-${timestamp}`
                 
                 // Add date range to filename if specified
                 if (orderSelectionType.value === 'dateRange') {
@@ -1072,7 +1322,7 @@ export default {
                         fileName += `_until-${end}`
                     }
                 } else {
-                    fileName += '_all-orders'
+                    fileName += '_complete'
                 }
                 
                 fileName += '.pdf'
@@ -1080,7 +1330,7 @@ export default {
                 // Save the PDF
                 doc.save(fileName)
                 
-                showAlert('PDF downloaded successfully!', 'success')
+                showAlert('Professional PDF report downloaded successfully!', 'success')
                 
             } catch (error) {
                 console.error('Client-side PDF generation failed:', error)
@@ -1089,148 +1339,405 @@ export default {
             }
         }
 
-        // Fallback printable version
+        // Fallback printable version with professional design
         const generatePrintableVersion = (ordersToExport) => {
             if (confirm('Would you like to generate a printable version instead?')) {
                 const ordersData = ordersToExport
                 const printWindow = window.open('', '_blank')
                 
-                const printContent = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>${props.isAdmin ? 'Orders Report' : 'My Orders'}</title>
-                        <style>
-                            body { font-family: Arial, sans-serif; margin: 20px; }
-                            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-                            .header h1 { color: #333; margin: 0; }
-                            .header p { color: #666; margin: 5px 0; }
-                            .summary { display: flex; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; }
-                            .summary-item { margin-right: 20px; }
-                            .table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
-                            .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
-                            .table th { background-color: #f5f5f5; font-weight: bold; }
-                            .status { padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; }
-                            .status-pending { background-color: #fef3cd; color: #856404; }
-                            .status-confirmed { background-color: #cce7ff; color: #004085; }
-                            .status-processing { background-color: #e2d9f3; color: #491c8c; }
-                            .status-shipped { background-color: #d1e7dd; color: #0f5132; }
-                            .status-delivered { background-color: #d1ecf1; color: #0c5460; }
-                            .status-cancelled { background-color: #f8d7da; color: #721c24; }
-                            .footer { margin-top: 30px; text-align: center; color: #666; font-size: 11px; }
-                            @media print {
-                                body { margin: 10mm; }
-                                .no-print { display: none; }
-                                .table { font-size: 11px; }
-                            }
-                            .print-button { 
-                                background: #dc3545; 
-                                color: white; 
-                                border: none; 
-                                padding: 10px 20px; 
-                                border-radius: 5px; 
-                                cursor: pointer; 
-                                margin: 20px auto;
-                                display: block;
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="header">
-                            <h1>${props.isAdmin ? 'ORDERS REPORT' : 'MY ORDERS'}</h1>
-                            <p>Generated on ${new Date().toLocaleDateString('en-US', { 
-                                year: 'numeric', 
-                                month: 'long', 
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            })}</p>
-                            ${orderSelectionType.value === 'dateRange' && (dateRange.value.startDate || dateRange.value.endDate) ? 
-                                `<p>Date Range: ${dateRange.value.startDate ? formatDateDisplay(dateRange.value.startDate) : 'Beginning'} to ${dateRange.value.endDate ? formatDateDisplay(dateRange.value.endDate) : 'Now'}</p>` : 
-                                '<p>All Orders</p>'}
-                            <p>Total Orders: ${ordersData.length} orders</p>
-                        </div>
-                        
-                        ${props.isAdmin ? `
-                        <div class="summary">
-                            <div class="summary-item"><strong>Pending:</strong> ${statusCounts.value.pending}</div>
-                            <div class="summary-item"><strong>Confirmed:</strong> ${statusCounts.value.confirmed}</div>
-                            <div class="summary-item"><strong>Processing:</strong> ${statusCounts.value.processing}</div>
-                            <div class="summary-item"><strong>Shipped:</strong> ${statusCounts.value.shipped}</div>
-                            <div class="summary-item"><strong>Delivered:</strong> ${statusCounts.value.delivered}</div>
-                            <div class="summary-item"><strong>Cancelled:</strong> ${statusCounts.value.cancelled || 0}</div>
-                        </div>
-                        ` : ''}
-                        
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th width="10%">Order ID</th>
-                                    ${props.isAdmin ? '<th width="20%">Customer</th>' : ''}
-                                    <th width="10%">Total Items</th>
-                                    <th width="10%">Amount</th>
-                                    <th width="15%">Payment</th>
-                                    <th width="10%">Status</th>
-                                    <th width="15%">Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${ordersData.map(order => {
-                                    // Clean customer name
-                                    let customerName = order.user?.name || 'N/A'
-                                    customerName = customerName.replace(/[^\x00-\x7F]/g, ' ')
-                                    
-                                    return `
-                                        <tr>
-                                            <td><strong>#${order.id}</strong><br><small>${order.transaction_id || 'N/A'}</small></td>
-                                            ${props.isAdmin ? `<td>${customerName}<br><small>${order.user?.email || ''}</small></td>` : ''}
-                                            <td>
-                                                <strong>${getTotalItems(order)} items</strong>
-                                            </td>
-                                            <td><strong>$${order.total_amount}</strong></td>
-                                            <td>
-                                                ${order.payment_method}<br>
-                                                <span class="status status-${order.payment_status}">${order.payment_status}</span>
-                                            </td>
-                                            <td>
-                                                <span class="status status-${order.status}">${order.status}</span>
-                                            </td>
-                                            <td>${formatDateForPDF(order.created_at)}</td>
-                                        </tr>
-                                    `
-                                }).join('')}
-                            </tbody>
-                        </table>
-                        
-                        <div class="footer">
-                            <p>Report generated from ${window.location.hostname}</p>
-                            <p>© ${new Date().getFullYear()} All rights reserved</p>
-                        </div>
-                        
-                        <button class="print-button no-print" onclick="window.print();">Print Report</button>
-                        
-                        <script>
-                            window.onload = function() {
-                                // Auto-print after 1 second
-                                setTimeout(() => {
-                                    window.print();
-                                }, 1000);
-                            }
-                            
-                            // Close window after print
-                            window.onafterprint = function() {
-                                setTimeout(() => {
-                                    window.close();
-                                }, 500);
-                            };
-                        <\/script>
-                    </body>
-                    </html>
-                `
-
+                const printContent = generatePrintableContent(ordersData)
+                
                 printWindow.document.write(printContent)
                 printWindow.document.close()
             }
+        }
+
+        // Generate printable content with professional design
+        const generatePrintableContent = (ordersData) => {
+            const dateRangeText = orderSelectionType.value === 'dateRange' && (dateRange.value.startDate || dateRange.value.endDate) ? 
+                `Date Range: ${dateRange.value.startDate ? formatDateDisplay(dateRange.value.startDate) : 'Beginning'} to ${dateRange.value.endDate ? formatDateDisplay(dateRange.value.endDate) : 'Now'}` : 
+                'All Orders'
+            
+            return `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${props.isAdmin ? 'Professional Order Report' : 'My Order History'}</title>
+                    <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+                        
+                        body { 
+                            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                            margin: 0; 
+                            padding: 30px; 
+                            background: #f8fafc;
+                            color: #1e293b;
+                        }
+                        
+                        .report-container {
+                            max-width: 1200px;
+                            margin: 0 auto;
+                            background: white;
+                            border-radius: 12px;
+                            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                            overflow: hidden;
+                        }
+                        
+                        .report-header { 
+                            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+                            color: white;
+                            padding: 40px;
+                            position: relative;
+                        }
+                        
+                        .report-header::after {
+                            content: '';
+                            position: absolute;
+                            bottom: 0;
+                            left: 0;
+                            right: 0;
+                            height: 4px;
+                            background: linear-gradient(90deg, #3b82f6, #10b981, #8b5cf6);
+                        }
+                        
+                        .report-header h1 { 
+                            font-size: 32px;
+                            margin: 0 0 10px 0;
+                            font-weight: 700;
+                            letter-spacing: -0.5px;
+                        }
+                        
+                        .report-header .subtitle {
+                            font-size: 16px;
+                            opacity: 0.9;
+                            margin-bottom: 20px;
+                        }
+                        
+                        .report-meta {
+                            display: flex;
+                            justify-content: space-between;
+                            flex-wrap: wrap;
+                            gap: 20px;
+                            margin-top: 20px;
+                            padding-top: 20px;
+                            border-top: 1px solid rgba(255, 255, 255, 0.2);
+                        }
+                        
+                        .meta-item {
+                            flex: 1;
+                            min-width: 200px;
+                        }
+                        
+                        .meta-label {
+                            font-size: 12px;
+                            text-transform: uppercase;
+                            letter-spacing: 1px;
+                            opacity: 0.7;
+                            margin-bottom: 5px;
+                        }
+                        
+                        .meta-value {
+                            font-size: 16px;
+                            font-weight: 600;
+                        }
+                        
+                        .summary-cards {
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                            gap: 20px;
+                            margin: 30px;
+                            padding: 0;
+                        }
+                        
+                        .summary-card {
+                            background: white;
+                            border-radius: 8px;
+                            padding: 20px;
+                            text-align: center;
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                            border: 1px solid #e2e8f0;
+                            transition: transform 0.2s ease;
+                        }
+                        
+                        .summary-card:hover {
+                            transform: translateY(-2px);
+                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                        }
+                        
+                        .summary-card .count {
+                            font-size: 28px;
+                            font-weight: 700;
+                            margin-bottom: 8px;
+                        }
+                        
+                        .summary-card .label {
+                            font-size: 12px;
+                            text-transform: uppercase;
+                            letter-spacing: 1px;
+                            color: #64748b;
+                            font-weight: 600;
+                        }
+                        
+                        .table-container {
+                            margin: 30px;
+                            border-radius: 8px;
+                            overflow: hidden;
+                            border: 1px solid #e2e8f0;
+                        }
+                        
+                        .data-table { 
+                            width: 100%; 
+                            border-collapse: collapse;
+                            font-size: 14px;
+                        }
+                        
+                        .data-table th { 
+                            background: #f1f5f9;
+                            color: #475569;
+                            padding: 16px 12px;
+                            text-align: left;
+                            font-weight: 600;
+                            text-transform: uppercase;
+                            font-size: 12px;
+                            letter-spacing: 0.5px;
+                            border-bottom: 2px solid #e2e8f0;
+                        }
+                        
+                        .data-table td { 
+                            padding: 14px 12px;
+                            border-bottom: 1px solid #f1f5f9;
+                            vertical-align: middle;
+                        }
+                        
+                        .data-table tr:hover {
+                            background-color: #f8fafc;
+                        }
+                        
+                        .data-table tr:last-child td {
+                            border-bottom: none;
+                        }
+                        
+                        .status-indicator {
+                            padding: 6px 12px;
+                            border-radius: 20px;
+                            font-size: 11px;
+                            font-weight: 600;
+                            display: inline-block;
+                            text-align: center;
+                            min-width: 90px;
+                        }
+                        
+                        .status-pending { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+                        .status-confirmed { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+                        .status-processing { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+                        .status-shipped { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+                        .status-delivered { background: #cffafe; color: #0e7490; border: 1px solid #a5f3fc; }
+                        .status-cancelled { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+                        
+                        .report-footer { 
+                            background: #f8fafc;
+                            padding: 30px;
+                            text-align: center;
+                            border-top: 1px solid #e2e8f0;
+                            margin-top: 40px;
+                        }
+                        
+                        .report-footer p {
+                            margin: 5px 0;
+                            color: #64748b;
+                            font-size: 13px;
+                        }
+                        
+                        .print-btn { 
+                            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+                            color: white; 
+                            border: none; 
+                            padding: 14px 32px; 
+                            border-radius: 8px; 
+                            cursor: pointer; 
+                            margin: 30px auto;
+                            display: block;
+                            font-size: 15px;
+                            font-weight: 600;
+                            transition: all 0.2s ease;
+                            box-shadow: 0 2px 4px rgba(30, 58, 138, 0.2);
+                        }
+                        
+                        .print-btn:hover {
+                            transform: translateY(-1px);
+                            box-shadow: 0 4px 8px rgba(30, 58, 138, 0.3);
+                        }
+                        
+                        .tax-note {
+                            background: #f0f9ff;
+                            border: 1px solid #bae6fd;
+                            border-radius: 8px;
+                            padding: 15px;
+                            margin: 20px 30px;
+                            text-align: center;
+                            color: #0369a1;
+                            font-weight: 500;
+                        }
+                        
+                        @media print {
+                            body { 
+                                background: none;
+                                margin: 10mm;
+                                padding: 0;
+                            }
+                            .no-print { display: none !important; }
+                            .report-container {
+                                box-shadow: none;
+                                border-radius: 0;
+                                max-width: 100%;
+                            }
+                            .print-btn { display: none !important; }
+                            .data-table { 
+                                font-size: 12px;
+                            }
+                            .summary-card {
+                                break-inside: avoid;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="report-container">
+                        <div class="report-header">
+                            <h1>${props.isAdmin ? '📊 PROFESSIONAL ORDER REPORT' : '📦 MY ORDER HISTORY'}</h1>
+                            <div class="subtitle">Book Store - Comprehensive Order Management</div>
+                            
+                            <div class="report-meta">
+                                <div class="meta-item">
+                                    <div class="meta-label">Generated On</div>
+                                    <div class="meta-value">${new Date().toLocaleDateString('en-US', { 
+                                        year: 'numeric', 
+                                        month: 'long', 
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}</div>
+                                </div>
+                                <div class="meta-item">
+                                    <div class="meta-label">Report Period</div>
+                                    <div class="meta-value">${dateRangeText}</div>
+                                </div>
+                                <div class="meta-item">
+                                    <div class="meta-label">Total Orders</div>
+                                    <div class="meta-value">${ordersData.length} orders</div>
+                                </div>
+                                <div class="meta-item">
+                                    <div class="meta-label">Report ID</div>
+                                    <div class="meta-value">BS-${Date.now().toString().slice(-8)}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="tax-note">
+                            <strong>Tax Information:</strong> All prices include 0% tax as per current regulations. This is a tax-exempt invoice.
+                        </div>
+                        
+                        ${props.isAdmin ? `
+                        <div class="summary-cards">
+                            <div class="summary-card">
+                                <div class="count">${statusCounts.value.pending}</div>
+                                <div class="label">Pending</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="count">${statusCounts.value.confirmed}</div>
+                                <div class="label">Confirmed</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="count">${statusCounts.value.processing}</div>
+                                <div class="label">Processing</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="count">${statusCounts.value.shipped}</div>
+                                <div class="label">Shipped</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="count">${statusCounts.value.delivered}</div>
+                                <div class="label">Delivered</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="count">${statusCounts.value.cancelled || 0}</div>
+                                <div class="label">Cancelled</div>
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th width="10%">Order ID</th>
+                                        ${props.isAdmin ? '<th width="20%">Customer</th>' : ''}
+                                        <th width="10%">Items</th>
+                                        <th width="15%">Amount (USD)</th>
+                                        <th width="15%">Payment</th>
+                                        <th width="10%">Status</th>
+                                        <th width="20%">Order Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${ordersData.map(order => {
+                                        // Clean customer name
+                                        let customerName = order.user?.name || 'N/A'
+                                        customerName = customerName.replace(/[^\x00-\x7F]/g, ' ')
+                                        
+                                        return `
+                                            <tr>
+                                                <td><strong style="color: #1e3a8a;">#${order.id}</strong></td>
+                                                ${props.isAdmin ? `<td>${customerName}<br><small>${order.user?.email || ''}</small></td>` : ''}
+                                                <td>
+                                                    <strong>${getTotalItems(order)} items</strong>
+                                                </td>
+                                                <td><strong style="color: #10b981;">$${order.total_amount}</strong></td>
+                                                <td>
+                                                    ${order.payment_method}<br>
+                                                    <small>${order.payment_status}</small>
+                                                </td>
+                                                <td>
+                                                    <span class="status-indicator status-${order.status}">${order.status.toUpperCase()}</span>
+                                                </td>
+                                                <td>${formatDateForPDF(order.created_at)}<br><small>${formatDate(order.created_at).split(',')[1]}</small></td>
+                                            </tr>
+                                        `
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="report-footer">
+                            <p><strong>Book Store Ltd.</strong> | Professional Book Retailer</p>
+                            <p>123 Book Street, Knowledge City, BK 10101 | Phone: +1 (555) 123-4567</p>
+                            <p>Email: invoices@bookstore.com | Website: www.bookstore.com</p>
+                            <p>© ${new Date().getFullYear()} Book Store Ltd. All rights reserved. This is an official document.</p>
+                        </div>
+                        
+                        <button class="print-btn no-print" onclick="window.print();">
+                            🖨️ Print Professional Report
+                        </button>
+                    </div>
+                    
+                    <script>
+                        window.onload = function() {
+                            // Auto-print after 1 second
+                            setTimeout(() => {
+                                window.print();
+                            }, 1000);
+                        }
+                        
+                        // Close window after print
+                        window.onafterprint = function() {
+                            setTimeout(() => {
+                                window.close();
+                            }, 500);
+                        };
+                    <\/script>
+                </body>
+                </html>
+            `
         }
 
         // Load jsPDF dynamically
@@ -1257,54 +1764,748 @@ export default {
                 })
                 
                 if (response.data.success) {
-                    this.$notify({
-                        title: 'Success',
-                        message: 'Order status updated and email notification sent!',
-                        type: 'success'
-                    })
-                    
-                    // Refresh orders or update specific order
-                    await this.fetchOrders();
+                    showAlert('Order status updated and email notification sent!', 'success')
+                    // Refresh orders
+                    window.location.reload()
                 }
             } catch (error) {
                 console.error('Failed to update order status:', error)
-                
-                // Rollback the status change in UI
-                order.status = this.getOriginalStatus(order);
-                
-                this.$notify({
-                    title: 'Error',
-                    message: 'Failed to update order status: ' + (error.response?.data?.error || error.message),
-                    type: 'error'
-                })
+                showAlert('Failed to update order status: ' + (error.response?.data?.error || error.message), 'error')
             }
         }
-        
-        // Helper method to store original status
-        const getOriginalStatus = (order) => {
-            // You might need to store original status somewhere
-            return order._originalStatus || order.status;
+
+        // Print single order - Professional Design
+        const printSingleOrder = (order) => {
+            console.log('Printing order:', order)
+            
+            const printWindow = window.open('', '_blank', 'width=900,height=700')
+            
+            if (!printWindow) {
+                showAlert('Please allow popups for this site to print the invoice.', 'warning')
+                return
+            }
+            
+            // Format date for display
+            const formatDateForDisplay = (dateString) => {
+                try {
+                    const date = new Date(dateString)
+                    return date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })
+                } catch (e) {
+                    return dateString
+                }
+            }
+            
+            // Tax is 0%
+            const subtotal = parseFloat(order.total_amount)
+            const tax = 0
+            
+            // Clean data to prevent issues
+            const cleanText = (text) => {
+                if (!text) return 'N/A'
+                return String(text).replace(/[^\x00-\x7F]/g, ' ')
+            }
+            
+            // Get shipping address safely
+            const shippingAddress = order.shipping_address || {}
+            
+            // Generate item rows HTML
+            const itemsHtml = order.items && order.items.length > 0 ? 
+                order.items.map(item => {
+                    const itemPrice = parseFloat(item.book?.price) || 0
+                    const itemQuantity = parseInt(item.quantity) || 0
+                    const itemTotal = itemPrice * itemQuantity
+                    
+                    return `
+                        <tr>
+                            <td>
+                                <strong>${cleanText(item.book?.title) || 'Unknown Book'}</strong><br>
+                                <small class="text-gray-600">${cleanText(item.book?.author) || 'Unknown Author'}</small>
+                            </td>
+                            <td class="text-center">${itemQuantity}</td>
+                            <td class="text-right">$${itemPrice.toFixed(2)}</td>
+                            <td class="text-right">$${itemTotal.toFixed(2)}</td>
+                        </tr>
+                    `
+                }).join('') : 
+                '<tr><td colspan="4" class="text-center py-4 text-gray-500">No items found</td></tr>'
+            
+            // Generate shipping address HTML
+            const shippingHtml = shippingAddress.address_line1 ? 
+                `<div class="space-y-1">
+                    <p class="font-semibold text-gray-700">Shipping Address:</p>
+                    <p>${cleanText(shippingAddress.address_line1)}</p>
+                    ${shippingAddress.address_line2 ? `<p>${cleanText(shippingAddress.address_line2)}</p>` : ''}
+                    <p>${cleanText(shippingAddress.city || '')}, ${cleanText(shippingAddress.state || '')}</p>
+                    <p>${cleanText(shippingAddress.country || '')} - ${cleanText(shippingAddress.postal_code || '')}</p>
+                    <p><span class="font-medium">Phone:</span> ${cleanText(shippingAddress.phone) || 'N/A'}</p>
+                </div>` : 
+                '<p class="text-gray-500">No shipping address provided</p>'
+            
+            const printContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Invoice #${order.id} - Book Store</title>
+                    <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+                        
+                        body { 
+                            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+                            margin: 0; 
+                            padding: 40px; 
+                            color: #1e293b;
+                            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+                            min-height: 100vh;
+                        }
+                        
+                        .invoice-wrapper { 
+                            max-width: 800px; 
+                            margin: 0 auto; 
+                            background: white; 
+                            border-radius: 16px;
+                            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+                            overflow: hidden;
+                            position: relative;
+                        }
+                        
+                        .invoice-wrapper::before {
+                            content: '';
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            height: 6px;
+                            background: linear-gradient(90deg, #1e3a8a, #3b82f6, #10b981);
+                        }
+                        
+                        .invoice-header { 
+                            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+                            padding: 40px;
+                            color: white;
+                            position: relative;
+                            overflow: hidden;
+                        }
+                        
+                        .invoice-header::after {
+                            content: '';
+                            position: absolute;
+                            top: 0;
+                            right: 0;
+                            width: 200px;
+                            height: 200px;
+                            background: rgba(255, 255, 255, 0.1);
+                            border-radius: 50%;
+                            transform: translate(30%, -30%);
+                        }
+                        
+                        .invoice-title {
+                            font-size: 36px;
+                            margin: 0 0 10px 0;
+                            font-weight: 800;
+                            letter-spacing: -0.5px;
+                            position: relative;
+                            z-index: 1;
+                        }
+                        
+                        .invoice-subtitle {
+                            font-size: 16px;
+                            opacity: 0.9;
+                            margin-bottom: 20px;
+                            position: relative;
+                            z-index: 1;
+                        }
+                        
+                        .invoice-number {
+                            background: rgba(255, 255, 255, 0.2);
+                            padding: 8px 20px;
+                            border-radius: 20px;
+                            display: inline-block;
+                            font-weight: 600;
+                            position: relative;
+                            z-index: 1;
+                        }
+                        
+                        .invoice-content {
+                            padding: 40px;
+                        }
+                        
+                        .invoice-grid {
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                            gap: 30px;
+                            margin-bottom: 40px;
+                        }
+                        
+                        .info-section {
+                            background: #f8fafc;
+                            border-radius: 12px;
+                            padding: 24px;
+                            border-left: 4px solid #3b82f6;
+                        }
+                        
+                        .info-title {
+                            font-size: 18px;
+                            font-weight: 700;
+                            color: #1e293b;
+                            margin: 0 0 16px 0;
+                            padding-bottom: 12px;
+                            border-bottom: 2px solid #e2e8f0;
+                        }
+                        
+                        .info-item {
+                            margin: 12px 0;
+                            display: flex;
+                        }
+                        
+                        .info-label {
+                            font-weight: 600;
+                            color: #475569;
+                            min-width: 140px;
+                        }
+                        
+                        .info-value {
+                            color: #1e293b;
+                            flex: 1;
+                        }
+                        
+                        .status-badge {
+                            padding: 8px 16px;
+                            border-radius: 20px;
+                            font-size: 12px;
+                            font-weight: 700;
+                            text-transform: uppercase;
+                            letter-spacing: 0.5px;
+                            display: inline-block;
+                        }
+                        
+                        .status-pending { background: #fef3c7; color: #92400e; }
+                        .status-confirmed { background: #dbeafe; color: #1e40af; }
+                        .status-processing { background: #f3e8ff; color: #6b21a8; }
+                        .status-shipped { background: #d1fae5; color: #065f46; }
+                        .status-delivered { background: #cffafe; color: #0e7490; }
+                        .status-cancelled { background: #fee2e2; color: #991b1b; }
+                        
+                        .items-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin: 30px 0;
+                            border-radius: 12px;
+                            overflow: hidden;
+                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+                        }
+                        
+                        .items-table th {
+                            background: #1e3a8a;
+                            color: white;
+                            padding: 16px;
+                            text-align: left;
+                            font-weight: 600;
+                            text-transform: uppercase;
+                            font-size: 12px;
+                            letter-spacing: 1px;
+                        }
+                        
+                        .items-table td {
+                            padding: 16px;
+                            border-bottom: 1px solid #e2e8f0;
+                        }
+                        
+                        .items-table tr:last-child td {
+                            border-bottom: none;
+                        }
+                        
+                        .items-table tr:hover {
+                            background-color: #f8fafc;
+                        }
+                        
+                        .total-section {
+                            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+                            padding: 24px;
+                            border-radius: 12px;
+                            margin-top: 30px;
+                        }
+                        
+                        .total-row {
+                            display: flex;
+                            justify-content: space-between;
+                            margin: 12px 0;
+                            font-size: 16px;
+                        }
+                        
+                        .grand-total {
+                            font-size: 24px;
+                            font-weight: 800;
+                            color: #1e3a8a;
+                            border-top: 2px solid #cbd5e1;
+                            padding-top: 16px;
+                            margin-top: 16px;
+                        }
+                        
+                        .tax-notice {
+                            background: #f0f9ff;
+                            border: 1px solid #bae6fd;
+                            border-radius: 8px;
+                            padding: 16px;
+                            margin-top: 30px;
+                            text-align: center;
+                            color: #0369a1;
+                            font-weight: 600;
+                        }
+                        
+                        .invoice-footer {
+                            background: #f8fafc;
+                            padding: 30px 40px;
+                            border-top: 1px solid #e2e8f0;
+                            margin-top: 40px;
+                        }
+                        
+                        .footer-grid {
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                            gap: 20px;
+                            text-align: center;
+                        }
+                        
+                        .footer-item h4 {
+                            margin: 0 0 8px 0;
+                            color: #475569;
+                            font-size: 14px;
+                            font-weight: 600;
+                        }
+                        
+                        .footer-item p {
+                            margin: 4px 0;
+                            color: #64748b;
+                            font-size: 13px;
+                        }
+                        
+                        .print-button {
+                            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+                            color: white;
+                            border: none;
+                            padding: 16px 32px;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-size: 16px;
+                            font-weight: 600;
+                            display: block;
+                            margin: 30px auto;
+                            transition: all 0.2s ease;
+                            box-shadow: 0 4px 6px rgba(30, 58, 138, 0.2);
+                        }
+                        
+                        .print-button:hover {
+                            transform: translateY(-2px);
+                            box-shadow: 0 6px 12px rgba(30, 58, 138, 0.3);
+                        }
+                        
+                        @media print {
+                            body {
+                                background: none;
+                                margin: 0;
+                                padding: 20mm;
+                            }
+                            .no-print { display: none !important; }
+                            .print-button { display: none !important; }
+                            .invoice-wrapper {
+                                max-width: 100%;
+                                margin: 0;
+                                box-shadow: none;
+                                border-radius: 0;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="invoice-wrapper">
+                        <div class="invoice-header">
+                            <h1 class="invoice-title">INVOICE</h1>
+                            <div class="invoice-subtitle">Book Store | Official Commercial Invoice</div>
+                            <div class="invoice-number">INV-${order.id.toString().padStart(6, '0')}</div>
+                        </div>
+                        
+                        <div class="invoice-content">
+                            <div class="invoice-grid">
+                                <div class="info-section">
+                                    <h3 class="info-title">Invoice Details</h3>
+                                    <div class="info-item">
+                                        <span class="info-label">Invoice Number:</span>
+                                        <span class="info-value">#${cleanText(order.id)}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Transaction ID:</span>
+                                        <span class="info-value">${cleanText(order.transaction_id) || 'N/A'}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Invoice Date:</span>
+                                        <span class="info-value">${formatDateForDisplay(order.created_at)}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Order Status:</span>
+                                        <span class="info-value"><span class="status-badge status-${cleanText(order.status)}">${cleanText(order.status)}</span></span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Payment Status:</span>
+                                        <span class="info-value"><span class="status-badge status-${cleanText(order.payment_status)}">${cleanText(order.payment_status)}</span></span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Payment Method:</span>
+                                        <span class="info-value">${cleanText(order.payment_method)}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="info-section">
+                                    <h3 class="info-title">${props.isAdmin ? 'Customer Information' : 'Billing Information'}</h3>
+                                    <div class="info-item">
+                                        <span class="info-label">Customer Name:</span>
+                                        <span class="info-value">${cleanText(order.user?.name) || 'N/A'}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Email Address:</span>
+                                        <span class="info-value">${cleanText(order.user?.email) || 'N/A'}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Shipping Address:</span>
+                                        <span class="info-value">
+                                            ${shippingHtml}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h2 style="color: #1e3a8a; margin: 30px 0 20px 0; font-size: 24px; font-weight: 700;">Order Items</h2>
+                            <table class="items-table">
+                                <thead>
+                                    <tr>
+                                        <th width="50%">Item Description</th>
+                                        <th width="10%">Quantity</th>
+                                        <th width="20%">Unit Price</th>
+                                        <th width="20%">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${itemsHtml}
+                                </tbody>
+                            </table>
+                            
+                            <div class="total-section">
+                                <div class="total-row">
+                                    <span><strong>Subtotal:</strong></span>
+                                    <span><strong>$${subtotal.toFixed(2)}</strong></span>
+                                </div>
+                                <div class="total-row">
+                                    <span><strong>Tax (0%):</strong></span>
+                                    <span><strong>$${tax.toFixed(2)}</strong></span>
+                                </div>
+                                <div class="total-row grand-total">
+                                    <span><strong>GRAND TOTAL:</strong></span>
+                                    <span><strong>$${parseFloat(order.total_amount).toFixed(2)}</strong></span>
+                                </div>
+                            </div>
+                            
+                            <div class="tax-notice">
+                                <strong>TAX INFORMATION:</strong> This invoice is issued with 0% tax rate as per applicable regulations. All amounts are in USD.
+                            </div>
+                        </div>
+                        
+                        <div class="invoice-footer">
+                            <div class="footer-grid">
+                                <div class="footer-item">
+                                    <h4>Payment Terms</h4>
+                                    <p>Due upon receipt</p>
+                                    <p>Net 0 days</p>
+                                </div>
+                                <div class="footer-item">
+                                    <h4>Contact Information</h4>
+                                    <p>support@bookstore.com</p>
+                                    <p>+1 (555) 123-4567</p>
+                                </div>
+                                <div class="footer-item">
+                                    <h4>Legal Information</h4>
+                                    <p>Tax ID: 00-0000000</p>
+                                    <p>VAT: Not applicable</p>
+                                </div>
+                            </div>
+                            <p style="text-align: center; margin-top: 20px; color: #64748b; font-size: 13px;">
+                                Thank you for your business. This is an electronically generated invoice, no signature required.
+                            </p>
+                        </div>
+                        
+                        <button class="print-button no-print" onclick="window.print();">
+                            🖨️ Print Professional Invoice
+                        </button>
+                        
+                        <script>
+                            window.onload = function() {
+                                var printButton = document.querySelector('.print-button');
+                                if (printButton) {
+                                    printButton.focus();
+                                }
+                            };
+                            
+                            window.onafterprint = function() {
+                                setTimeout(function() {
+                                    window.close();
+                                }, 1000);
+                            };
+                        <\/script>
+                    </div>
+                </body>
+                </html>
+            `
+
+            printWindow.document.write(printContent)
+            printWindow.document.close()
+            printWindow.focus()
         }
-        
-        const fetchOrders = async () => {
+
+        // Download single order as PDF - Professional Design
+        const downloadOrderPDF = async (order) => {
             try {
-                const params = {
-                    status: this.selectedStatus,
-                    search: this.searchQuery,
-                    payment_status: this.selectedPaymentStatus
+                if (typeof window.jspdf === 'undefined') {
+                    await loadJSPDF()
+                }
+
+                const { jsPDF } = window.jspdf
+                const doc = new jsPDF('p', 'mm', 'a4')
+                
+                let yPos = 20
+                const pageWidth = doc.internal.pageSize.getWidth()
+                const margin = 20
+                const contentWidth = pageWidth - (margin * 2)
+                
+                // Professional Header with Dark Blue
+                doc.setFillColor(30, 58, 138)
+                doc.rect(0, 0, pageWidth, 60, 'F')
+                
+                // Company Logo/Icon
+                doc.setFontSize(36)
+                doc.setTextColor(255, 255, 255)
+                doc.text("📚", margin, 35)
+                
+                // Header text
+                doc.setFontSize(28)
+                doc.setFont("helvetica", "bold")
+                doc.text("INVOICE", margin + 20, 35)
+                
+                doc.setFontSize(12)
+                doc.setFont("helvetica", "normal")
+                doc.text("Book Store | Professional Invoice", margin + 20, 42)
+                doc.text(`Invoice #${order.id}`, pageWidth - margin, 35, { align: 'right' })
+                doc.text(`Date: ${formatDateForPDF(order.created_at)}`, pageWidth - margin, 42, { align: 'right' })
+                
+                yPos = 70
+                
+                // Invoice Details Box
+                doc.setFillColor(249, 250, 251)
+                doc.roundedRect(margin, yPos, contentWidth, 25, 5, 5, 'F')
+                doc.setDrawColor(209, 213, 219)
+                doc.roundedRect(margin, yPos, contentWidth, 25, 5, 5, 'S')
+                
+                doc.setFontSize(14)
+                doc.setFont("helvetica", "bold")
+                doc.setTextColor(30, 58, 138)
+                doc.text("COMMERCIAL INVOICE", margin + 10, yPos + 10)
+                
+                doc.setFontSize(10)
+                doc.setTextColor(107, 114, 128)
+                doc.text(`Status: ${order.status.toUpperCase()} | Payment: ${order.payment_status.toUpperCase()}`, margin + 10, yPos + 18)
+                doc.text(`Transaction: ${order.transaction_id || 'N/A'}`, pageWidth - margin - 10, yPos + 18, { align: 'right' })
+                
+                yPos += 35
+                
+                // Two column layout
+                const colWidth = contentWidth / 2 - 10
+                
+                // Left Column - Billing Information
+                doc.setFontSize(12)
+                doc.setFont("helvetica", "bold")
+                doc.setTextColor(30, 58, 138)
+                doc.text("BILLING INFORMATION", margin, yPos)
+                yPos += 8
+                
+                doc.setFontSize(10)
+                doc.setFont("helvetica", "normal")
+                doc.setTextColor(55, 65, 81)
+                doc.text(`Customer: ${order.user?.name || 'N/A'}`, margin, yPos)
+                yPos += 6
+                doc.text(`Email: ${order.user?.email || 'N/A'}`, margin, yPos)
+                yPos += 10
+                
+                if (order.shipping_address) {
+                    doc.text("Shipping Address:", margin, yPos)
+                    yPos += 6
+                    doc.setFontSize(9)
+                    doc.text(`${order.shipping_address.address_line1 || ''}`, margin + 5, yPos)
+                    yPos += 5
+                    if (order.shipping_address.address_line2) {
+                        doc.text(`${order.shipping_address.address_line2}`, margin + 5, yPos)
+                        yPos += 5
+                    }
+                    doc.text(`${order.shipping_address.city || ''}, ${order.shipping_address.state || ''}`, margin + 5, yPos)
+                    yPos += 5
+                    doc.text(`${order.shipping_address.country || ''} - ${order.shipping_address.postal_code || ''}`, margin + 5, yPos)
+                    yPos += 5
+                    doc.text(`Phone: ${order.shipping_address.phone || 'N/A'}`, margin + 5, yPos)
+                    yPos += 10
+                } else {
+                    doc.text("Shipping: Not specified", margin, yPos)
+                    yPos += 15
                 }
                 
-                const response = await axios.get('/order-list', { params })
-                this.orders = response.data.orders.data || response.data.orders
-                this.totalOrders = response.data.orders.total || this.orders.length
+                // Right Column - Invoice Details
+                doc.setFontSize(12)
+                doc.setFont("helvetica", "bold")
+                doc.setTextColor(30, 58, 138)
+                doc.text("INVOICE DETAILS", margin + colWidth + 20, yPos - 38)
                 
-                // Store original status for each order
-                this.orders.forEach(order => {
-                    order._originalStatus = order.status;
+                doc.setFontSize(10)
+                doc.setFont("helvetica", "normal")
+                doc.setTextColor(55, 65, 81)
+                doc.text(`Invoice Date: ${formatDate(order.created_at)}`, margin + colWidth + 20, yPos - 30)
+                doc.text(`Payment Method: ${order.payment_method}`, margin + colWidth + 20, yPos - 24)
+                doc.text(`Order Status: ${order.status.toUpperCase()}`, margin + colWidth + 20, yPos - 18)
+                doc.text(`Payment Status: ${order.payment_status.toUpperCase()}`, margin + colWidth + 20, yPos - 12)
+                
+                // Items Table
+                doc.setFontSize(14)
+                doc.setFont("helvetica", "bold")
+                doc.setTextColor(30, 58, 138)
+                doc.text("ORDER ITEMS", margin, yPos)
+                yPos += 10
+                
+                // Table Header
+                doc.setFillColor(30, 58, 138)
+                doc.rect(margin, yPos, contentWidth, 8, 'F')
+                doc.setTextColor(255, 255, 255)
+                doc.setFontSize(10)
+                doc.setFont("helvetica", "bold")
+                
+                const headers = ["Item Description", "Qty", "Price", "Total"]
+                const headerWidths = [contentWidth * 0.5, contentWidth * 0.1, contentWidth * 0.2, contentWidth * 0.2]
+                
+                let xPos = margin
+                headers.forEach((header, index) => {
+                    doc.text(header, xPos + headerWidths[index]/2, yPos + 5, { align: 'center' })
+                    xPos += headerWidths[index]
                 })
                 
+                yPos += 10
+                
+                // Table Rows
+                doc.setFont("helvetica", "normal")
+                doc.setTextColor(55, 65, 81)
+                
+                order.items?.forEach((item, index) => {
+                    if (yPos > 250) {
+                        doc.addPage()
+                        yPos = 20
+                    }
+                    
+                    // Alternate row colors
+                    if (index % 2 === 0) {
+                        doc.setFillColor(250, 250, 250)
+                        doc.rect(margin, yPos - 2, contentWidth, 8, 'F')
+                    }
+                    
+                    xPos = margin
+                    
+                    // Item name
+                    const itemName = item.book?.title || 'Unknown Book'
+                    let displayName = itemName
+                    if (displayName.length > 30) {
+                        displayName = displayName.substring(0, 30) + '...'
+                    }
+                    doc.text(displayName, xPos + 5, yPos + 5)
+                    xPos += headerWidths[0]
+                    
+                    // Quantity
+                    const itemQuantity = parseInt(item.quantity) || 1
+                    doc.text(itemQuantity.toString(), xPos + headerWidths[1]/2, yPos + 5, { align: 'center' })
+                    xPos += headerWidths[1]
+                    
+                    // Price
+                    const itemPrice = parseFloat(item.book?.price) || 0
+                    doc.text(`$${itemPrice.toFixed(2)}`, xPos + headerWidths[2]/2, yPos + 5, { align: 'center' })
+                    xPos += headerWidths[2]
+                    
+                    // Total
+                    const itemTotal = itemPrice * itemQuantity
+                    doc.setFont("helvetica", "bold")
+                    doc.setTextColor(16, 185, 129)
+                    doc.text(`$${itemTotal.toFixed(2)}`, xPos + headerWidths[3]/2, yPos + 5, { align: 'center' })
+                    doc.setTextColor(55, 65, 81)
+                    doc.setFont("helvetica", "normal")
+                    
+                    yPos += 8
+                })
+                
+                yPos += 10
+                
+                // Totals Section
+                doc.setFillColor(249, 250, 251)
+                doc.roundedRect(margin, yPos, contentWidth, 40, 5, 5, 'F')
+                doc.setDrawColor(209, 213, 219)
+                doc.roundedRect(margin, yPos, contentWidth, 40, 5, 5, 'S')
+                
+                // Subtotal
+                doc.setFontSize(12)
+                doc.setFont("helvetica", "bold")
+                doc.setTextColor(55, 65, 81)
+                doc.text("Subtotal:", margin + contentWidth - 80, yPos + 12)
+                doc.text(`$${parseFloat(order.total_amount).toFixed(2)}`, margin + contentWidth - 20, yPos + 12, { align: 'right' })
+                
+                // Tax 0%
+                doc.text("Tax (0%):", margin + contentWidth - 80, yPos + 22)
+                doc.text("$0.00", margin + contentWidth - 20, yPos + 22, { align: 'right' })
+                
+                // Grand Total
+                doc.setFontSize(16)
+                doc.setTextColor(30, 58, 138)
+                doc.text("GRAND TOTAL:", margin + contentWidth - 80, yPos + 35)
+                doc.text(`$${parseFloat(order.total_amount).toFixed(2)}`, margin + contentWidth - 20, yPos + 35, { align: 'right' })
+                
+                yPos += 50
+                
+                // Tax Notice
+                doc.setFontSize(10)
+                doc.setFont("helvetica", "bold")
+                doc.setTextColor(30, 58, 138)
+                doc.text("TAX INFORMATION", margin, yPos)
+                yPos += 7
+                
+                doc.setFontSize(9)
+                doc.setFont("helvetica", "normal")
+                doc.setTextColor(107, 114, 128)
+                doc.text("• This invoice is issued with 0% tax rate as per applicable regulations", margin + 5, yPos)
+                yPos += 5
+                doc.text("• All amounts are in United States Dollars (USD)", margin + 5, yPos)
+                yPos += 5
+                doc.text("• This is an electronically generated invoice, no signature required", margin + 5, yPos)
+                
+                // Footer
+                doc.setFontSize(8)
+                doc.setTextColor(156, 163, 175)
+                doc.text("Thank you for your business with Book Store", pageWidth / 2, doc.internal.pageSize.getHeight() - 15, { align: 'center' })
+                doc.text(`Invoice generated: ${new Date().toLocaleDateString()} | Professional Invoice System`, margin, doc.internal.pageSize.getHeight() - 10)
+                doc.text(`Page 1 of 1 | Invoice ID: INV-${order.id}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: 'right' })
+                
+                // Save PDF
+                const fileName = `invoice-${order.id}-professional-${new Date().toISOString().slice(0, 10)}.pdf`
+                doc.save(fileName)
+                
+                showAlert('Professional invoice PDF downloaded successfully!', 'success')
+                
             } catch (error) {
-                console.error('Failed to fetch orders:', error)
+                console.error('Failed to generate invoice PDF:', error)
+                showAlert('PDF generation failed. Opening printable version instead.', 'warning')
+                printSingleOrder(order)
             }
         }
 
@@ -1404,6 +2605,7 @@ export default {
             orderSelectionType,
             dateRange,
             filteredOrders,
+            selectedOrder,
             statusCounts,
             paymentStatusCounts,
             getTotalItems,
@@ -1411,11 +2613,12 @@ export default {
             getPaymentStatusClass,
             formatDate,
             formatDateDisplay,
+            showOrderDetails,
             setDateRange,
             generatePDFWithDateRange,
             updateOrderStatus,
-            getOriginalStatus,
-            fetchOrders,
+            printSingleOrder,
+            downloadOrderPDF,
             previousPage,
             nextPage,
             goToPage,

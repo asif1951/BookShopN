@@ -19,9 +19,11 @@ class RegisteredUserController extends Controller
     /**
      * Display the registration view.
      */
-    public function create(): Response
+    public function create(Request $request): Response
     {
-        return Inertia::render('Auth/Register');
+        return Inertia::render('Auth/Register', [
+            'redirectTo' => $request->query('redirect_to') // redirect URL পাস করা
+        ]);
     }
 
     /**
@@ -46,6 +48,17 @@ class RegisteredUserController extends Controller
         event(new Registered($user));
 
         Auth::login($user);
+
+        // রেজিস্ট্রেশনের পর redirect URL চেক করা
+        if ($request->has('redirect_to')) {
+            return redirect()->to($request->input('redirect_to'));
+        }
+
+        // অথবা session থেকে intended URL নেওয়া
+        $redirectTo = $request->session()->pull('url.intended', null);
+        if ($redirectTo && $redirectTo !== route('register')) {
+            return redirect()->to($redirectTo);
+        }
 
         return redirect(RouteServiceProvider::HOME);
     }

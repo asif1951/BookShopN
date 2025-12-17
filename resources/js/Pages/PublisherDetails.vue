@@ -48,9 +48,10 @@
                         <div
                             v-for="book in books"
                             :key="book.id"
-                            class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden group"
+                            class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden group flex flex-col"
                         >
-                            <div class="relative">
+                            <!-- Book Image Section -->
+                            <div class="relative flex-shrink-0">
                                 <img
                                     :src="book.photo ? `/storage/${book.photo}` : 'https://via.placeholder.com/300x400?text=No+Image'"
                                     :alt="book.title"
@@ -66,41 +67,47 @@
                                 </div>
                             </div>
                             
-                            <div class="p-4">
+                            <!-- Book Content Section -->
+                            <div class="p-4 flex-grow flex flex-col">
+                                <!-- Book Title -->
                                 <h3 
                                     @click="viewBookDetails(book)"
-                                    class="font-semibold text-lg text-gray-800 mb-2 line-clamp-2 hover:text-indigo-600 cursor-pointer"
+                                    class="font-semibold text-lg text-gray-800 mb-2 line-clamp-2 hover:text-indigo-600 cursor-pointer flex-grow"
                                 >
                                     {{ book.title }}
                                 </h3>
                                 
-                                <div class="space-y-1 text-sm text-gray-600 mb-3">
-                                    <p><span class="font-medium">Author:</span> {{ book.author || 'N/A' }}</p>
-                                    <p><span class="font-medium">Category:</span> {{ book.category || 'N/A' }}</p>
+                                <!-- Book Details -->
+                                <div class="space-y-1 text-sm text-gray-600 mb-4">
+                                    <p class="truncate"><span class="font-medium">Author:</span> {{ book.author || 'N/A' }}</p>
+                                    <p class="truncate"><span class="font-medium">Category:</span> {{ book.category || 'N/A' }}</p>
                                 </div>
                                 
-                                <div class="flex justify-between items-center">
-                                    <p class="text-indigo-600 font-bold text-lg">${{ book.price }}</p>
-                                    <p class="text-sm" :class="book.stock > 0 ? 'text-green-600' : 'text-red-600'">
-                                        {{ book.stock }} left
-                                    </p>
+                                <!-- Price and Stock Info -->
+                                <div class="mt-auto">
+                                    <div class="flex justify-between items-center mb-3">
+                                        <p class="text-indigo-600 font-bold text-lg">${{ book.price }}</p>
+                                        <p class="text-sm" :class="book.stock > 0 ? 'text-green-600' : 'text-red-600'">
+                                            {{ book.stock }} left
+                                        </p>
+                                    </div>
+                                    
+                                    <!-- Add to Cart Button -->
+                                    <button
+                                        v-if="book.stock > 0"
+                                        @click="addToCart(book)"
+                                        class="w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition-colors duration-200 font-medium"
+                                    >
+                                        Add to Cart
+                                    </button>
+                                    <button
+                                        v-else
+                                        disabled
+                                        class="w-full bg-gray-400 text-white py-2 rounded-md cursor-not-allowed font-medium"
+                                    >
+                                        Out of Stock
+                                    </button>
                                 </div>
-                                
-                                <!-- Add to Cart Button -->
-                                <button
-                                    v-if="book.stock > 0"
-                                    @click="addToCart(book)"
-                                    class="w-full mt-3 bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition-colors duration-200 font-medium"
-                                >
-                                    Add to Cart
-                                </button>
-                                <button
-                                    v-else
-                                    disabled
-                                    class="w-full mt-3 bg-gray-400 text-white py-2 rounded-md cursor-not-allowed font-medium"
-                                >
-                                    Out of Stock
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -168,5 +175,18 @@ const viewBookDetails = (book) => {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+/* Ensure all cards have same height */
+.grid > div {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 </style>
