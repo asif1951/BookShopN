@@ -7,6 +7,9 @@ const page = usePage()
 const book = ref(page.props.book || {})
 const authUser = page.props.auth?.user || null
 
+// Check if user is logged in
+const isAuthenticated = ref(!!authUser)
+
 // Reviews from database
 const reviews = ref(page.props.feedbacks || [])
 const rating = ref(0)
@@ -161,8 +164,17 @@ const getCartQuantity = (book) => {
   return item ? item.quantity : 0
 }
 
-// Add to cart function - initially quantity 1
+// Add to cart function - REQUIRES LOGIN
 const addToCart = (book) => {
+  // Check if user is authenticated
+  if (!isAuthenticated.value) {
+    // Directly redirect to login page without alert
+    sessionStorage.setItem('justLoggedIn', 'true')
+    router.visit('/login')
+    return
+  }
+  
+  // Only proceed if user is logged in
   const existingItem = cartItems.value.find(item => item.id === book.id)
   
   if (existingItem) {
@@ -185,6 +197,13 @@ const addToCart = (book) => {
 
 // Increment quantity
 const incrementQuantity = (book) => {
+  // Check if user is authenticated
+  if (!isAuthenticated.value) {
+    sessionStorage.setItem('justLoggedIn', 'true')
+    router.visit('/login')
+    return
+  }
+  
   const cartItem = cartItems.value.find(item => item.id === book.id)
   if (cartItem && cartItem.quantity < book.stock) {
     cartItem.quantity += 1
@@ -194,6 +213,13 @@ const incrementQuantity = (book) => {
 
 // Decrement quantity
 const decrementQuantity = (book) => {
+  // Check if user is authenticated
+  if (!isAuthenticated.value) {
+    sessionStorage.setItem('justLoggedIn', 'true')
+    router.visit('/login')
+    return
+  }
+  
   const cartItem = cartItems.value.find(item => item.id === book.id)
   if (cartItem) {
     if (cartItem.quantity > 1) {
@@ -208,6 +234,13 @@ const decrementQuantity = (book) => {
 
 // Remove from cart - Improved with immediate UI update
 const removeFromCart = (book) => {
+  // Check if user is authenticated
+  if (!isAuthenticated.value) {
+    sessionStorage.setItem('justLoggedIn', 'true')
+    router.visit('/login')
+    return
+  }
+  
   console.log('🗑️ Removing from cart:', book.title)
   cartItems.value = cartItems.value.filter(item => item.id !== book.id)
   saveCart()
@@ -427,10 +460,25 @@ const deleteReview = () => {
             <div class="flex gap-4">
               <button
                 @click="addToCart(book)"
-                :disabled="book.stock === 0 || isInCart(book)"
-                class="bg-green-500 text-white px-6 py-2 rounded-full hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+                :disabled="book.stock === 0"
+                class="px-6 py-2 rounded-full font-medium transition-all"
+                :class="
+                  !isAuthenticated 
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600' 
+                    : isInCart(book) 
+                      ? 'bg-green-100 text-green-700 cursor-default' 
+                      : book.stock === 0
+                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600'
+                "
               >
-                {{ book.stock > 0 ? (isInCart(book) ? 'Added to Cart' : 'Add to Cart') : 'Out of Stock' }}
+                <svg v-if="!isAuthenticated" class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                {{ 
+                  !isAuthenticated ? 'Login to Add' : 
+                  book.stock > 0 ? (isInCart(book) ? 'Added to Cart' : 'Add to Cart') : 'Out of Stock' 
+                }}
               </button>
 
               <button
@@ -443,10 +491,20 @@ const deleteReview = () => {
           </div>
 
           <!-- Show cart badge if book is in cart -->
-          <div v-if="isInCart(book)" class="mt-4">
+          <div v-if="isAuthenticated && isInCart(book)" class="mt-4">
             <span class="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
               In Cart: {{ getCartQuantity(book) }}
             </span>
+          </div>
+          
+          <!-- Login prompt for guests -->
+          <div v-if="!isAuthenticated" class="mt-4">
+            <p class="text-sm text-amber-600 font-medium">
+              <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Login to add to cart
+            </p>
           </div>
         </div>
       </div>
@@ -715,25 +773,25 @@ const deleteReview = () => {
                 <!-- Add to Cart Button -->
                 <button
                   @click.stop="addToCart(otherBook)"
-                  :disabled="otherBook.stock === 0 || isInCart(otherBook)"
+                  :disabled="otherBook.stock === 0"
                   :class="[
                     'px-4 py-2 rounded-lg font-medium transition-all',
-                    isInCart(otherBook) 
+                    !isAuthenticated 
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600' 
+                      : isInCart(otherBook) 
                       ? 'bg-green-100 text-green-700 cursor-default'
                       : otherBook.stock === 0
                       ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      : 'bg-indigo-500 text-white hover:bg-indigo-600'
+                      : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600'
                   ]"
                 >
-                  <span v-if="isInCart(otherBook)">
-                    Added ({{ getCartQuantity(otherBook) }})
-                  </span>
-                  <span v-else-if="otherBook.stock === 0">
-                    Out of Stock
-                  </span>
-                  <span v-else>
-                    Add to Cart
-                  </span>
+                  <svg v-if="!isAuthenticated" class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                  {{ 
+                    !isAuthenticated ? 'Login to Add' : 
+                    otherBook.stock > 0 ? (isInCart(otherBook) ? `Added (${getCartQuantity(otherBook)})` : 'Add to Cart') : 'Out of Stock' 
+                  }}
                 </button>
               </div>
             </div>

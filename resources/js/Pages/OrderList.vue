@@ -1774,7 +1774,7 @@ export default {
             }
         }
 
-        // Print single order - Professional Design
+        // Print single order - আপনার ছবির মতো ডিজাইন
         const printSingleOrder = (order) => {
             console.log('Printing order:', order)
             
@@ -1792,18 +1792,18 @@ export default {
                     return date.toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
+                        day: 'numeric'
                     })
                 } catch (e) {
                     return dateString
                 }
             }
             
-            // Tax is 0%
-            const subtotal = parseFloat(order.total_amount)
-            const tax = 0
+            // Calculate totals
+            const subtotal = parseFloat(order.total_amount) || 0
+            const shipping = 10.00
+            const tax = 10.00
+            const grandTotal = subtotal + shipping + tax
             
             // Clean data to prevent issues
             const cleanText = (text) => {
@@ -1823,439 +1823,347 @@ export default {
                     
                     return `
                         <tr>
-                            <td>
-                                <strong>${cleanText(item.book?.title) || 'Unknown Book'}</strong><br>
-                                <small class="text-gray-600">${cleanText(item.book?.author) || 'Unknown Author'}</small>
-                            </td>
-                            <td class="text-center">${itemQuantity}</td>
-                            <td class="text-right">$${itemPrice.toFixed(2)}</td>
-                            <td class="text-right">$${itemTotal.toFixed(2)}</td>
+                            <td>${cleanText(item.book?.title) || 'Unknown Book'}</td>
+                            <td style="text-align: center">${itemQuantity}</td>
+                            <td style="text-align: right">$${itemPrice.toFixed(2)}</td>
+                            <td style="text-align: right">$${itemTotal.toFixed(2)}</td>
                         </tr>
                     `
                 }).join('') : 
-                '<tr><td colspan="4" class="text-center py-4 text-gray-500">No items found</td></tr>'
+                '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #666">No items found</td></tr>'
             
             // Generate shipping address HTML
             const shippingHtml = shippingAddress.address_line1 ? 
-                `<div class="space-y-1">
-                    <p class="font-semibold text-gray-700">Shipping Address:</p>
-                    <p>${cleanText(shippingAddress.address_line1)}</p>
-                    ${shippingAddress.address_line2 ? `<p>${cleanText(shippingAddress.address_line2)}</p>` : ''}
-                    <p>${cleanText(shippingAddress.city || '')}, ${cleanText(shippingAddress.state || '')}</p>
-                    <p>${cleanText(shippingAddress.country || '')} - ${cleanText(shippingAddress.postal_code || '')}</p>
-                    <p><span class="font-medium">Phone:</span> ${cleanText(shippingAddress.phone) || 'N/A'}</p>
+                `<div style="margin-top: 10px">
+                    <p style="margin: 5px 0"><strong>Shipping Address:</strong></p>
+                    <p style="margin: 3px 0">${cleanText(shippingAddress.address_line1)}</p>
+                    ${shippingAddress.address_line2 ? `<p style="margin: 3px 0">${cleanText(shippingAddress.address_line2)}</p>` : ''}
+                    <p style="margin: 3px 0">${cleanText(shippingAddress.city || '')}, ${cleanText(shippingAddress.state || '')}</p>
+                    <p style="margin: 3px 0">${cleanText(shippingAddress.country || '')} - ${cleanText(shippingAddress.postal_code || '')}</p>
+                    <p style="margin: 3px 0"><strong>Phone:</strong> ${cleanText(shippingAddress.phone) || 'N/A'}</p>
                 </div>` : 
-                '<p class="text-gray-500">No shipping address provided</p>'
+                '<p style="color: #666; margin-top: 10px">No shipping address provided</p>'
             
             const printContent = `
                 <!DOCTYPE html>
                 <html>
                 <head>
-                    <title>Invoice #${order.id} - Book Store</title>
+                    <title>Order Invoice #${order.id}</title>
                     <style>
                         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
                         
                         body { 
                             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
                             margin: 0; 
-                            padding: 40px; 
-                            color: #1e293b;
-                            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-                            min-height: 100vh;
+                            padding: 30px; 
+                            color: #333;
+                            background: #fff;
                         }
                         
-                        .invoice-wrapper { 
-                            max-width: 800px; 
-                            margin: 0 auto; 
-                            background: white; 
-                            border-radius: 16px;
-                            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-                            overflow: hidden;
-                            position: relative;
-                        }
-                        
-                        .invoice-wrapper::before {
-                            content: '';
-                            position: absolute;
-                            top: 0;
-                            left: 0;
-                            right: 0;
-                            height: 6px;
-                            background: linear-gradient(90deg, #1e3a8a, #3b82f6, #10b981);
-                        }
-                        
-                        .invoice-header { 
-                            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-                            padding: 40px;
-                            color: white;
-                            position: relative;
+                        .invoice-container {
+                            max-width: 800px;
+                            margin: 0 auto;
+                            border: 1px solid #e0e0e0;
+                            border-radius: 4px;
                             overflow: hidden;
                         }
                         
-                        .invoice-header::after {
-                            content: '';
-                            position: absolute;
-                            top: 0;
-                            right: 0;
-                            width: 200px;
-                            height: 200px;
-                            background: rgba(255, 255, 255, 0.1);
-                            border-radius: 50%;
-                            transform: translate(30%, -30%);
+                        .header {
+                            background: #f8f9fa;
+                            padding: 20px 30px;
+                            border-bottom: 1px solid #e0e0e0;
+                            text-align: center;
+                        }
+                        
+                        .company-name {
+                            font-size: 28px;
+                            font-weight: 700;
+                            color: #333;
+                            margin: 0 0 5px 0;
                         }
                         
                         .invoice-title {
-                            font-size: 36px;
-                            margin: 0 0 10px 0;
-                            font-weight: 800;
-                            letter-spacing: -0.5px;
-                            position: relative;
-                            z-index: 1;
-                        }
-                        
-                        .invoice-subtitle {
-                            font-size: 16px;
-                            opacity: 0.9;
-                            margin-bottom: 20px;
-                            position: relative;
-                            z-index: 1;
-                        }
-                        
-                        .invoice-number {
-                            background: rgba(255, 255, 255, 0.2);
-                            padding: 8px 20px;
-                            border-radius: 20px;
-                            display: inline-block;
+                            font-size: 20px;
                             font-weight: 600;
-                            position: relative;
-                            z-index: 1;
+                            color: #666;
+                            margin: 5px 0;
                         }
                         
-                        .invoice-content {
-                            padding: 40px;
+                        .address {
+                            font-size: 12px;
+                            color: #666;
+                            margin: 5px 0;
+                            line-height: 1.4;
                         }
                         
-                        .invoice-grid {
-                            display: grid;
-                            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-                            gap: 30px;
-                            margin-bottom: 40px;
+                        .invoice-info {
+                            padding: 20px 30px;
+                            border-bottom: 1px solid #e0e0e0;
+                            display: flex;
+                            justify-content: space-between;
+                            background: #fff;
                         }
                         
                         .info-section {
-                            background: #f8fafc;
-                            border-radius: 12px;
-                            padding: 24px;
-                            border-left: 4px solid #3b82f6;
-                        }
-                        
-                        .info-title {
-                            font-size: 18px;
-                            font-weight: 700;
-                            color: #1e293b;
-                            margin: 0 0 16px 0;
-                            padding-bottom: 12px;
-                            border-bottom: 2px solid #e2e8f0;
-                        }
-                        
-                        .info-item {
-                            margin: 12px 0;
-                            display: flex;
-                        }
-                        
-                        .info-label {
-                            font-weight: 600;
-                            color: #475569;
-                            min-width: 140px;
-                        }
-                        
-                        .info-value {
-                            color: #1e293b;
                             flex: 1;
                         }
                         
-                        .status-badge {
-                            padding: 8px 16px;
-                            border-radius: 20px;
-                            font-size: 12px;
-                            font-weight: 700;
-                            text-transform: uppercase;
-                            letter-spacing: 0.5px;
-                            display: inline-block;
+                        .info-section:first-child {
+                            margin-right: 20px;
                         }
                         
-                        .status-pending { background: #fef3c7; color: #92400e; }
-                        .status-confirmed { background: #dbeafe; color: #1e40af; }
-                        .status-processing { background: #f3e8ff; color: #6b21a8; }
-                        .status-shipped { background: #d1fae5; color: #065f46; }
-                        .status-delivered { background: #cffafe; color: #0e7490; }
-                        .status-cancelled { background: #fee2e2; color: #991b1b; }
+                        .info-section h3 {
+                            font-size: 14px;
+                            font-weight: 600;
+                            color: #333;
+                            margin: 0 0 10px 0;
+                            padding-bottom: 5px;
+                            border-bottom: 1px solid #e0e0e0;
+                        }
+                        
+                        .info-row {
+                            margin: 8px 0;
+                            font-size: 13px;
+                        }
+                        
+                        .info-label {
+                            font-weight: 500;
+                            color: #666;
+                            display: inline-block;
+                            width: 120px;
+                        }
+                        
+                        .info-value {
+                            color: #333;
+                        }
+                        
+                        .items-section {
+                            padding: 20px 30px;
+                            border-bottom: 1px solid #e0e0e0;
+                        }
                         
                         .items-table {
                             width: 100%;
                             border-collapse: collapse;
-                            margin: 30px 0;
-                            border-radius: 12px;
-                            overflow: hidden;
-                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+                            font-size: 13px;
                         }
                         
                         .items-table th {
-                            background: #1e3a8a;
-                            color: white;
-                            padding: 16px;
-                            text-align: left;
+                            background: #f8f9fa;
+                            color: #333;
                             font-weight: 600;
-                            text-transform: uppercase;
-                            font-size: 12px;
-                            letter-spacing: 1px;
+                            text-align: left;
+                            padding: 12px 8px;
+                            border-bottom: 1px solid #e0e0e0;
                         }
                         
                         .items-table td {
-                            padding: 16px;
-                            border-bottom: 1px solid #e2e8f0;
+                            padding: 10px 8px;
+                            border-bottom: 1px solid #f0f0f0;
+                            vertical-align: top;
                         }
                         
                         .items-table tr:last-child td {
                             border-bottom: none;
                         }
                         
-                        .items-table tr:hover {
-                            background-color: #f8fafc;
+                        .items-table th:nth-child(1) { width: 50%; }
+                        .items-table th:nth-child(2) { width: 15%; text-align: center; }
+                        .items-table th:nth-child(3) { width: 15%; text-align: right; }
+                        .items-table th:nth-child(4) { width: 20%; text-align: right; }
+                        
+                        .items-table td:nth-child(2) { text-align: center; }
+                        .items-table td:nth-child(3) { text-align: right; }
+                        .items-table td:nth-child(4) { text-align: right; }
+                        
+                        .totals-section {
+                            padding: 20px 30px;
+                            background: #f8f9fa;
                         }
                         
-                        .total-section {
-                            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-                            padding: 24px;
-                            border-radius: 12px;
-                            margin-top: 30px;
-                        }
-                        
-                        .total-row {
-                            display: flex;
-                            justify-content: space-between;
-                            margin: 12px 0;
-                            font-size: 16px;
-                        }
-                        
-                        .grand-total {
-                            font-size: 24px;
-                            font-weight: 800;
-                            color: #1e3a8a;
-                            border-top: 2px solid #cbd5e1;
-                            padding-top: 16px;
-                            margin-top: 16px;
-                        }
-                        
-                        .tax-notice {
-                            background: #f0f9ff;
-                            border: 1px solid #bae6fd;
-                            border-radius: 8px;
-                            padding: 16px;
-                            margin-top: 30px;
-                            text-align: center;
-                            color: #0369a1;
-                            font-weight: 600;
-                        }
-                        
-                        .invoice-footer {
-                            background: #f8fafc;
-                            padding: 30px 40px;
-                            border-top: 1px solid #e2e8f0;
-                            margin-top: 40px;
-                        }
-                        
-                        .footer-grid {
-                            display: grid;
-                            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                            gap: 20px;
-                            text-align: center;
-                        }
-                        
-                        .footer-item h4 {
-                            margin: 0 0 8px 0;
-                            color: #475569;
-                            font-size: 14px;
-                            font-weight: 600;
-                        }
-                        
-                        .footer-item p {
-                            margin: 4px 0;
-                            color: #64748b;
+                        .totals-table {
+                            width: 100%;
+                            max-width: 300px;
+                            margin-left: auto;
                             font-size: 13px;
                         }
                         
-                        .print-button {
-                            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-                            color: white;
-                            border: none;
-                            padding: 16px 32px;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-size: 16px;
-                            font-weight: 600;
-                            display: block;
-                            margin: 30px auto;
-                            transition: all 0.2s ease;
-                            box-shadow: 0 4px 6px rgba(30, 58, 138, 0.2);
+                        .totals-table tr {
+                            border-bottom: 1px solid #e0e0e0;
                         }
                         
-                        .print-button:hover {
-                            transform: translateY(-2px);
-                            box-shadow: 0 6px 12px rgba(30, 58, 138, 0.3);
+                        .totals-table td {
+                            padding: 8px 0;
+                        }
+                        
+                        .totals-table td:first-child {
+                            text-align: left;
+                            font-weight: 500;
+                            color: #666;
+                        }
+                        
+                        .totals-table td:last-child {
+                            text-align: right;
+                            font-weight: 500;
+                            color: #333;
+                        }
+                        
+                        .grand-total {
+                            font-weight: 700;
+                            font-size: 14px;
+                            color: #333;
+                        }
+                        
+                        .footer {
+                            padding: 20px 30px;
+                            text-align: center;
+                            border-top: 1px solid #e0e0e0;
+                            background: #f8f9fa;
+                            font-size: 12px;
+                            color: #666;
+                            line-height: 1.6;
+                        }
+                        
+                        .footer p {
+                            margin: 5px 0;
+                        }
+                        
+                        .thank-you {
+                            font-weight: 600;
+                            color: #333;
+                            margin-bottom: 10px;
+                        }
+                        
+                        .footer-note {
+                            font-size: 11px;
+                            color: #999;
+                            margin-top: 10px;
                         }
                         
                         @media print {
                             body {
-                                background: none;
                                 margin: 0;
-                                padding: 20mm;
+                                padding: 0;
                             }
-                            .no-print { display: none !important; }
-                            .print-button { display: none !important; }
-                            .invoice-wrapper {
+                            
+                            .invoice-container {
                                 max-width: 100%;
-                                margin: 0;
-                                box-shadow: none;
+                                border: none;
                                 border-radius: 0;
+                            }
+                            
+                            .no-print {
+                                display: none !important;
                             }
                         }
                     </style>
                 </head>
                 <body>
-                    <div class="invoice-wrapper">
-                        <div class="invoice-header">
-                            <h1 class="invoice-title">INVOICE</h1>
-                            <div class="invoice-subtitle">Book Store | Official Commercial Invoice</div>
-                            <div class="invoice-number">INV-${order.id.toString().padStart(6, '0')}</div>
+                    <div class="invoice-container">
+                        <div class="header">
+                            <h1 class="company-name">BookStore</h1>
+                            <h2 class="invoice-title">ORDER INVOICE</h2>
+                            <p class="address">123 Book Street, Zindabazar, Sylhet</p>
                         </div>
                         
-                        <div class="invoice-content">
-                            <div class="invoice-grid">
-                                <div class="info-section">
-                                    <h3 class="info-title">Invoice Details</h3>
-                                    <div class="info-item">
-                                        <span class="info-label">Invoice Number:</span>
-                                        <span class="info-value">#${cleanText(order.id)}</span>
-                                    </div>
-                                    <div class="info-item">
-                                        <span class="info-label">Transaction ID:</span>
-                                        <span class="info-value">${cleanText(order.transaction_id) || 'N/A'}</span>
-                                    </div>
-                                    <div class="info-item">
-                                        <span class="info-label">Invoice Date:</span>
-                                        <span class="info-value">${formatDateForDisplay(order.created_at)}</span>
-                                    </div>
-                                    <div class="info-item">
-                                        <span class="info-label">Order Status:</span>
-                                        <span class="info-value"><span class="status-badge status-${cleanText(order.status)}">${cleanText(order.status)}</span></span>
-                                    </div>
-                                    <div class="info-item">
-                                        <span class="info-label">Payment Status:</span>
-                                        <span class="info-value"><span class="status-badge status-${cleanText(order.payment_status)}">${cleanText(order.payment_status)}</span></span>
-                                    </div>
-                                    <div class="info-item">
-                                        <span class="info-label">Payment Method:</span>
-                                        <span class="info-value">${cleanText(order.payment_method)}</span>
-                                    </div>
+                        <div class="invoice-info">
+                            <div class="info-section">
+                                <h3>INVOICE DETAILS</h3>
+                                <div class="info-row">
+                                    <span class="info-label">Invoice No:</span>
+                                    <span class="info-value">INV-ORD${order.id.toString().padStart(6, '0')}</span>
                                 </div>
-                                
-                                <div class="info-section">
-                                    <h3 class="info-title">${props.isAdmin ? 'Customer Information' : 'Billing Information'}</h3>
-                                    <div class="info-item">
-                                        <span class="info-label">Customer Name:</span>
-                                        <span class="info-value">${cleanText(order.user?.name) || 'N/A'}</span>
-                                    </div>
-                                    <div class="info-item">
-                                        <span class="info-label">Email Address:</span>
-                                        <span class="info-value">${cleanText(order.user?.email) || 'N/A'}</span>
-                                    </div>
-                                    <div class="info-item">
-                                        <span class="info-label">Shipping Address:</span>
-                                        <span class="info-value">
-                                            ${shippingHtml}
-                                        </span>
-                                    </div>
+                                <div class="info-row">
+                                    <span class="info-label">Invoice Date:</span>
+                                    <span class="info-value">${formatDateForDisplay(order.created_at)}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Order Status:</span>
+                                    <span class="info-value" style="font-weight: 600; color: #28a745">COMPLETED</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Payment Method:</span>
+                                    <span class="info-value">Online Payment</span>
                                 </div>
                             </div>
                             
-                            <h2 style="color: #1e3a8a; margin: 30px 0 20px 0; font-size: 24px; font-weight: 700;">Order Items</h2>
+                            <div class="info-section">
+                                <h3>BILLED TO</h3>
+                                <div class="info-row">
+                                    <span class="info-label">Name:</span>
+                                    <span class="info-value">${cleanText(order.user?.name) || 'N/A'}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Email:</span>
+                                    <span class="info-value">${cleanText(order.user?.email) || 'N/A'}</span>
+                                </div>
+                                ${shippingHtml}
+                            </div>
+                        </div>
+                        
+                        <div class="items-section">
+                            <h3 style="margin: 0 0 15px 0; font-size: 14px; font-weight: 600; color: #333;">ORDER ITEMS</h3>
                             <table class="items-table">
                                 <thead>
                                     <tr>
-                                        <th width="50%">Item Description</th>
-                                        <th width="10%">Quantity</th>
-                                        <th width="20%">Unit Price</th>
-                                        <th width="20%">Total</th>
+                                        <th>ITEM DESCRIPTION</th>
+                                        <th>QTY</th>
+                                        <th>UNIT PRICE</th>
+                                        <th>TOTAL</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${itemsHtml}
                                 </tbody>
                             </table>
-                            
-                            <div class="total-section">
-                                <div class="total-row">
-                                    <span><strong>Subtotal:</strong></span>
-                                    <span><strong>$${subtotal.toFixed(2)}</strong></span>
-                                </div>
-                                <div class="total-row">
-                                    <span><strong>Tax (0%):</strong></span>
-                                    <span><strong>$${tax.toFixed(2)}</strong></span>
-                                </div>
-                                <div class="total-row grand-total">
-                                    <span><strong>GRAND TOTAL:</strong></span>
-                                    <span><strong>$${parseFloat(order.total_amount).toFixed(2)}</strong></span>
-                                </div>
-                            </div>
-                            
-                            <div class="tax-notice">
-                                <strong>TAX INFORMATION:</strong> This invoice is issued with 0% tax rate as per applicable regulations. All amounts are in USD.
-                            </div>
                         </div>
                         
-                        <div class="invoice-footer">
-                            <div class="footer-grid">
-                                <div class="footer-item">
-                                    <h4>Payment Terms</h4>
-                                    <p>Due upon receipt</p>
-                                    <p>Net 0 days</p>
-                                </div>
-                                <div class="footer-item">
-                                    <h4>Contact Information</h4>
-                                    <p>support@bookstore.com</p>
-                                    <p>+1 (555) 123-4567</p>
-                                </div>
-                                <div class="footer-item">
-                                    <h4>Legal Information</h4>
-                                    <p>Tax ID: 00-0000000</p>
-                                    <p>VAT: Not applicable</p>
-                                </div>
-                            </div>
-                            <p style="text-align: center; margin-top: 20px; color: #64748b; font-size: 13px;">
-                                Thank you for your business. This is an electronically generated invoice, no signature required.
+                        <div class="totals-section">
+                            <table class="totals-table">
+                                <tr>
+                                    <td>Subtotal:</td>
+                                    <td>$${subtotal.toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td>Shipping:</td>
+                                    <td>$${shipping.toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td>Tax:</td>
+                                    <td>$${tax.toFixed(2)}</td>
+                                </tr>
+                                <tr class="grand-total">
+                                    <td>GRAND TOTAL:</td>
+                                    <td>$${grandTotal.toFixed(2)}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        <div class="footer">
+                            <p class="thank-you">Thank you for your purchase!</p>
+                            <p>Printed on: ${formatDateForDisplay(order.created_at)}</p>
+                            <p class="footer-note">
+                                This invoice is computer generated and does not require a signature.<br>
+                                Printed by: ${cleanText(order.user?.name) || 'Customer'}
                             </p>
                         </div>
-                        
-                        <button class="print-button no-print" onclick="window.print();">
-                            🖨️ Print Professional Invoice
-                        </button>
-                        
-                        <script>
-                            window.onload = function() {
-                                var printButton = document.querySelector('.print-button');
-                                if (printButton) {
-                                    printButton.focus();
-                                }
-                            };
-                            
-                            window.onafterprint = function() {
-                                setTimeout(function() {
-                                    window.close();
-                                }, 1000);
-                            };
-                        <\/script>
                     </div>
+                    
+                    <script>
+                        window.onload = function() {
+                            // Auto-print after 500ms
+                            setTimeout(function() {
+                                window.print();
+                            }, 500);
+                        };
+                        
+                        window.onafterprint = function() {
+                            // Close window after printing
+                            setTimeout(function() {
+                                window.close();
+                            }, 500);
+                        };
+                    <\/script>
                 </body>
                 </html>
             `
@@ -2265,7 +2173,7 @@ export default {
             printWindow.focus()
         }
 
-        // Download single order as PDF - Professional Design
+        // Download single order as PDF - আপনার ছবির মতো ডিজাইন
         const downloadOrderPDF = async (order) => {
             try {
                 if (typeof window.jspdf === 'undefined') {
@@ -2280,119 +2188,84 @@ export default {
                 const margin = 20
                 const contentWidth = pageWidth - (margin * 2)
                 
-                // Professional Header with Dark Blue
-                doc.setFillColor(30, 58, 138)
-                doc.rect(0, 0, pageWidth, 60, 'F')
-                
-                // Company Logo/Icon
-                doc.setFontSize(36)
-                doc.setTextColor(255, 255, 255)
-                doc.text("📚", margin, 35)
-                
-                // Header text
-                doc.setFontSize(28)
+                // Header
+                doc.setFontSize(24)
                 doc.setFont("helvetica", "bold")
-                doc.text("INVOICE", margin + 20, 35)
+                doc.text("BookStore", pageWidth / 2, yPos, { align: 'center' })
                 
-                doc.setFontSize(12)
-                doc.setFont("helvetica", "normal")
-                doc.text("Book Store | Professional Invoice", margin + 20, 42)
-                doc.text(`Invoice #${order.id}`, pageWidth - margin, 35, { align: 'right' })
-                doc.text(`Date: ${formatDateForPDF(order.created_at)}`, pageWidth - margin, 42, { align: 'right' })
-                
-                yPos = 70
-                
-                // Invoice Details Box
-                doc.setFillColor(249, 250, 251)
-                doc.roundedRect(margin, yPos, contentWidth, 25, 5, 5, 'F')
-                doc.setDrawColor(209, 213, 219)
-                doc.roundedRect(margin, yPos, contentWidth, 25, 5, 5, 'S')
-                
-                doc.setFontSize(14)
+                doc.setFontSize(18)
                 doc.setFont("helvetica", "bold")
-                doc.setTextColor(30, 58, 138)
-                doc.text("COMMERCIAL INVOICE", margin + 10, yPos + 10)
+                doc.text("ORDER INVOICE", pageWidth / 2, yPos + 8, { align: 'center' })
                 
                 doc.setFontSize(10)
-                doc.setTextColor(107, 114, 128)
-                doc.text(`Status: ${order.status.toUpperCase()} | Payment: ${order.payment_status.toUpperCase()}`, margin + 10, yPos + 18)
-                doc.text(`Transaction: ${order.transaction_id || 'N/A'}`, pageWidth - margin - 10, yPos + 18, { align: 'right' })
+                doc.setFont("helvetica", "normal")
+                doc.text("123 Book Street, Zindabazar, Sylhet", pageWidth / 2, yPos + 14, { align: 'center' })
+                
+                // Invoice number
+                doc.setFontSize(12)
+                doc.setFont("helvetica", "bold")
+                doc.text(`INV-ORD${order.id.toString().padStart(6, '0')}`, margin, yPos + 25)
                 
                 yPos += 35
                 
                 // Two column layout
                 const colWidth = contentWidth / 2 - 10
                 
-                // Left Column - Billing Information
-                doc.setFontSize(12)
+                // Left Column - Invoice Details
+                doc.setFontSize(11)
                 doc.setFont("helvetica", "bold")
-                doc.setTextColor(30, 58, 138)
-                doc.text("BILLING INFORMATION", margin, yPos)
+                doc.setTextColor(30, 30, 30)
+                doc.text("INVOICE DETAILS", margin, yPos)
                 yPos += 8
                 
                 doc.setFontSize(10)
                 doc.setFont("helvetica", "normal")
-                doc.setTextColor(55, 65, 81)
-                doc.text(`Customer: ${order.user?.name || 'N/A'}`, margin, yPos)
+                doc.text(`Invoice Date: ${formatDateForPDF(order.created_at)}`, margin, yPos)
                 yPos += 6
-                doc.text(`Email: ${order.user?.email || 'N/A'}`, margin, yPos)
+                doc.text(`Order Status: COMPLETED`, margin, yPos)
+                yPos += 6
+                doc.text(`Payment Method: Online Payment`, margin, yPos)
                 yPos += 10
                 
-                if (order.shipping_address) {
-                    doc.text("Shipping Address:", margin, yPos)
-                    yPos += 6
-                    doc.setFontSize(9)
-                    doc.text(`${order.shipping_address.address_line1 || ''}`, margin + 5, yPos)
-                    yPos += 5
-                    if (order.shipping_address.address_line2) {
-                        doc.text(`${order.shipping_address.address_line2}`, margin + 5, yPos)
-                        yPos += 5
-                    }
-                    doc.text(`${order.shipping_address.city || ''}, ${order.shipping_address.state || ''}`, margin + 5, yPos)
-                    yPos += 5
-                    doc.text(`${order.shipping_address.country || ''} - ${order.shipping_address.postal_code || ''}`, margin + 5, yPos)
-                    yPos += 5
-                    doc.text(`Phone: ${order.shipping_address.phone || 'N/A'}`, margin + 5, yPos)
-                    yPos += 10
-                } else {
-                    doc.text("Shipping: Not specified", margin, yPos)
-                    yPos += 15
-                }
+                // Customer email
+                doc.text(`${order.user?.email || 'N/A'}`, margin, yPos)
+                yPos += 15
                 
-                // Right Column - Invoice Details
-                doc.setFontSize(12)
+                // Right Column - Billed To
+                doc.setFontSize(11)
                 doc.setFont("helvetica", "bold")
-                doc.setTextColor(30, 58, 138)
-                doc.text("INVOICE DETAILS", margin + colWidth + 20, yPos - 38)
+                doc.text("BILLED TO", margin + colWidth + 20, yPos - 29)
                 
                 doc.setFontSize(10)
                 doc.setFont("helvetica", "normal")
-                doc.setTextColor(55, 65, 81)
-                doc.text(`Invoice Date: ${formatDate(order.created_at)}`, margin + colWidth + 20, yPos - 30)
-                doc.text(`Payment Method: ${order.payment_method}`, margin + colWidth + 20, yPos - 24)
-                doc.text(`Order Status: ${order.status.toUpperCase()}`, margin + colWidth + 20, yPos - 18)
-                doc.text(`Payment Status: ${order.payment_status.toUpperCase()}`, margin + colWidth + 20, yPos - 12)
+                doc.text(`${order.user?.name || 'N/A'}`, margin + colWidth + 20, yPos - 21)
+                doc.text(`${order.user?.email || 'N/A'}`, margin + colWidth + 20, yPos - 15)
                 
                 // Items Table
-                doc.setFontSize(14)
+                doc.setFontSize(11)
                 doc.setFont("helvetica", "bold")
-                doc.setTextColor(30, 58, 138)
                 doc.text("ORDER ITEMS", margin, yPos)
-                yPos += 10
+                yPos += 8
                 
                 // Table Header
-                doc.setFillColor(30, 58, 138)
+                doc.setFillColor(240, 240, 240)
                 doc.rect(margin, yPos, contentWidth, 8, 'F')
-                doc.setTextColor(255, 255, 255)
+                doc.setTextColor(30, 30, 30)
                 doc.setFontSize(10)
                 doc.setFont("helvetica", "bold")
                 
-                const headers = ["Item Description", "Qty", "Price", "Total"]
-                const headerWidths = [contentWidth * 0.5, contentWidth * 0.1, contentWidth * 0.2, contentWidth * 0.2]
+                const headers = ["ITEM DESCRIPTION", "QTY", "UNIT PRICE", "TOTAL"]
+                const headerWidths = [contentWidth * 0.5, contentWidth * 0.15, contentWidth * 0.15, contentWidth * 0.2]
                 
                 let xPos = margin
                 headers.forEach((header, index) => {
-                    doc.text(header, xPos + headerWidths[index]/2, yPos + 5, { align: 'center' })
+                    if (index === 0) {
+                        doc.text(header, xPos + 3, yPos + 5)
+                    } else if (index === 1) {
+                        doc.text(header, xPos + headerWidths[index]/2, yPos + 5, { align: 'center' })
+                    } else {
+                        doc.text(header, xPos + headerWidths[index] - 3, yPos + 5, { align: 'right' })
+                    }
                     xPos += headerWidths[index]
                 })
                 
@@ -2400,20 +2273,9 @@ export default {
                 
                 // Table Rows
                 doc.setFont("helvetica", "normal")
-                doc.setTextColor(55, 65, 81)
+                doc.setTextColor(50, 50, 50)
                 
-                order.items?.forEach((item, index) => {
-                    if (yPos > 250) {
-                        doc.addPage()
-                        yPos = 20
-                    }
-                    
-                    // Alternate row colors
-                    if (index % 2 === 0) {
-                        doc.setFillColor(250, 250, 250)
-                        doc.rect(margin, yPos - 2, contentWidth, 8, 'F')
-                    }
-                    
+                order.items?.forEach((item) => {
                     xPos = margin
                     
                     // Item name
@@ -2422,7 +2284,7 @@ export default {
                     if (displayName.length > 30) {
                         displayName = displayName.substring(0, 30) + '...'
                     }
-                    doc.text(displayName, xPos + 5, yPos + 5)
+                    doc.text(displayName, xPos + 3, yPos + 5)
                     xPos += headerWidths[0]
                     
                     // Quantity
@@ -2432,15 +2294,13 @@ export default {
                     
                     // Price
                     const itemPrice = parseFloat(item.book?.price) || 0
-                    doc.text(`$${itemPrice.toFixed(2)}`, xPos + headerWidths[2]/2, yPos + 5, { align: 'center' })
+                    doc.text(`$${itemPrice.toFixed(2)}`, xPos + headerWidths[2] - 3, yPos + 5, { align: 'right' })
                     xPos += headerWidths[2]
                     
                     // Total
                     const itemTotal = itemPrice * itemQuantity
                     doc.setFont("helvetica", "bold")
-                    doc.setTextColor(16, 185, 129)
-                    doc.text(`$${itemTotal.toFixed(2)}`, xPos + headerWidths[3]/2, yPos + 5, { align: 'center' })
-                    doc.setTextColor(55, 65, 81)
+                    doc.text(`$${itemTotal.toFixed(2)}`, xPos + headerWidths[3] - 3, yPos + 5, { align: 'right' })
                     doc.setFont("helvetica", "normal")
                     
                     yPos += 8
@@ -2449,58 +2309,54 @@ export default {
                 yPos += 10
                 
                 // Totals Section
-                doc.setFillColor(249, 250, 251)
-                doc.roundedRect(margin, yPos, contentWidth, 40, 5, 5, 'F')
-                doc.setDrawColor(209, 213, 219)
-                doc.roundedRect(margin, yPos, contentWidth, 40, 5, 5, 'S')
+                const subtotal = parseFloat(order.total_amount) || 0
+                const shipping = 10.00
+                const tax = 10.00
+                const grandTotal = subtotal + shipping + tax
                 
-                // Subtotal
-                doc.setFontSize(12)
-                doc.setFont("helvetica", "bold")
-                doc.setTextColor(55, 65, 81)
-                doc.text("Subtotal:", margin + contentWidth - 80, yPos + 12)
-                doc.text(`$${parseFloat(order.total_amount).toFixed(2)}`, margin + contentWidth - 20, yPos + 12, { align: 'right' })
-                
-                // Tax 0%
-                doc.text("Tax (0%):", margin + contentWidth - 80, yPos + 22)
-                doc.text("$0.00", margin + contentWidth - 20, yPos + 22, { align: 'right' })
-                
-                // Grand Total
-                doc.setFontSize(16)
-                doc.setTextColor(30, 58, 138)
-                doc.text("GRAND TOTAL:", margin + contentWidth - 80, yPos + 35)
-                doc.text(`$${parseFloat(order.total_amount).toFixed(2)}`, margin + contentWidth - 20, yPos + 35, { align: 'right' })
-                
-                yPos += 50
-                
-                // Tax Notice
                 doc.setFontSize(10)
                 doc.setFont("helvetica", "bold")
-                doc.setTextColor(30, 58, 138)
-                doc.text("TAX INFORMATION", margin, yPos)
+                
+                // Subtotal
+                doc.text("Subtotal:", margin + contentWidth - 80, yPos)
+                doc.text(`$${subtotal.toFixed(2)}`, margin + contentWidth - 20, yPos, { align: 'right' })
                 yPos += 7
                 
-                doc.setFontSize(9)
+                // Shipping
+                doc.text("Shipping:", margin + contentWidth - 80, yPos)
+                doc.text(`$${shipping.toFixed(2)}`, margin + contentWidth - 20, yPos, { align: 'right' })
+                yPos += 7
+                
+                // Tax
+                doc.text("Tax:", margin + contentWidth - 80, yPos)
+                doc.text(`$${tax.toFixed(2)}`, margin + contentWidth - 20, yPos, { align: 'right' })
+                yPos += 7
+                
+                // Grand Total
+                doc.setFontSize(12)
+                doc.text("GRAND TOTAL:", margin + contentWidth - 80, yPos)
+                doc.text(`$${grandTotal.toFixed(2)}`, margin + contentWidth - 20, yPos, { align: 'right' })
+                yPos += 15
+                
+                // Thank you message
+                doc.setFontSize(10)
                 doc.setFont("helvetica", "normal")
-                doc.setTextColor(107, 114, 128)
-                doc.text("• This invoice is issued with 0% tax rate as per applicable regulations", margin + 5, yPos)
-                yPos += 5
-                doc.text("• All amounts are in United States Dollars (USD)", margin + 5, yPos)
-                yPos += 5
-                doc.text("• This is an electronically generated invoice, no signature required", margin + 5, yPos)
+                doc.setTextColor(100, 100, 100)
+                doc.text("Thank you for your purchase!", pageWidth / 2, yPos, { align: 'center' })
+                yPos += 6
                 
                 // Footer
                 doc.setFontSize(8)
-                doc.setTextColor(156, 163, 175)
-                doc.text("Thank you for your business with Book Store", pageWidth / 2, doc.internal.pageSize.getHeight() - 15, { align: 'center' })
-                doc.text(`Invoice generated: ${new Date().toLocaleDateString()} | Professional Invoice System`, margin, doc.internal.pageSize.getHeight() - 10)
-                doc.text(`Page 1 of 1 | Invoice ID: INV-${order.id}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: 'right' })
+                doc.setTextColor(150, 150, 150)
+                doc.text(`Printed on: ${formatDateForPDF(order.created_at)}`, margin, doc.internal.pageSize.getHeight() - 15)
+                doc.text("This invoice is computer generated and does not require a signature.", pageWidth / 2, doc.internal.pageSize.getHeight() - 15, { align: 'center' })
+                doc.text(`Printed by: ${order.user?.name || 'Customer'}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 15, { align: 'right' })
                 
                 // Save PDF
-                const fileName = `invoice-${order.id}-professional-${new Date().toISOString().slice(0, 10)}.pdf`
+                const fileName = `invoice-${order.id}-${new Date().toISOString().slice(0, 10)}.pdf`
                 doc.save(fileName)
                 
-                showAlert('Professional invoice PDF downloaded successfully!', 'success')
+                showAlert('Invoice PDF downloaded successfully!', 'success')
                 
             } catch (error) {
                 console.error('Failed to generate invoice PDF:', error)
